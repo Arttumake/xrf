@@ -1,7 +1,9 @@
 import csv
-import openpyxl as xl
 import os
 import glob
+
+import openpyxl as xl
+from openpyxl.styles import Font
 
 # group up all the csv files in this directory to a list
 csv_files = glob.glob(os.path.join(os.getcwd(), "*.csv"))
@@ -22,7 +24,7 @@ for file in csv_files:
     with open(file) as csv_file:
         file_reader = csv.reader(csv_file, delimiter=',')
         for row_num, row in enumerate(file_reader):
-            extras = 0 # count of extra compounds after "sum before norm."-cell
+            extras = 1 # count of extra compounds after "sum before norm."-cell
             for index, value in enumerate(row):
                 if index > 1 and index % 2 != 0:
                     try:
@@ -34,9 +36,18 @@ for file in csv_files:
                     # their values after "Sum Before Norm." cell    
                     except KeyError:
                         extras += 1
-                        print(row[index-1])
-                        ws.cell(row=this_row, 
-                                column=len(compound_order)+extras).value = float(value)
+                        this_column = len(compound_order) + extras
+                        compound_cell = ws.cell(row = substance_row, column = this_column)
+                        compound_cell.value = row[index-1]
+                        compound_cell.font = Font(bold=True)
+                        
+                        print(f"{row[index-1]} : {value} , row = {this_row} col = {len(compound_order)+extras}")
+                        ws.cell(row = this_row, 
+                                column = this_column).value = float(value)
+                elif index == 0:
+                    ws.cell(row=substance_row + row_num + 1, 
+                            column=1).value = value
+                        
 
-wb.save("new_excel.xlsx")                           
+wb.save("test_excel1.xlsx")                           
 wb.close()
