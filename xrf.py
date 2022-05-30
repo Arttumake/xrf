@@ -1,6 +1,7 @@
 import csv
 import os
 import glob
+import shutil
 
 import openpyxl as xl
 from openpyxl.styles import Font
@@ -8,6 +9,7 @@ from openpyxl.styles import Font
 # group up all the csv files in this directory to a list
 csv_files = glob.glob(os.path.join(os.getcwd(), "*.csv"))
 excel_file = "Tulostiedosto ver2.xlsx"
+excels = []
 
 wb = xl.load_workbook(excel_file)
 ws = wb.active # define worksheet to work on
@@ -20,7 +22,7 @@ for row in ws.iter_rows(min_row=substance_row, max_row=substance_row, min_col=2)
         
 compound_order.pop(None, None) # remove trailing none-key from dict if it exists
 
-for file in csv_files:
+for num, file in enumerate(csv_files):
     with open(file) as csv_file:
         file_reader = csv.reader(csv_file, delimiter=',')
         for row_num, row in enumerate(file_reader):
@@ -47,7 +49,24 @@ for file in csv_files:
                 elif index == 0:
                     ws.cell(row=substance_row + row_num + 1, 
                             column=1).value = value
+                    
+    excel_name = f"test_excel_{num+1}.xlsx"             
+    wb.save(excel_name)  
+    wb.close()     
+    excel_path = os.path.join(os.getcwd(), excel_name)
+    excels.append(excel_name)             
                         
-
-wb.save("test_excel1.xlsx")                           
-wb.close()
+def move_file(names: list, dst: str) -> None:
+    """ Moves a list of files to the destination folder
+        args:
+            - name: name of the file + file extension
+            - dst: destination folder, only string
+    """
+    for name in names:
+        dir = os.path.join(os.getcwd(), dst)
+        if not os.path.exists(dir):
+            os.mkdir(dir)
+        shutil.move(name, dir)
+    
+move_file(excels, 'Raportit')
+move_file(csv_files, 'CSV')
