@@ -4,7 +4,7 @@ import glob
 import shutil
 
 import openpyxl as xl
-from openpyxl.styles import Font
+from openpyxl.styles import Font, Alignment
 
 # group up all the csv files in this directory to a list
 csv_files = glob.glob(os.path.join(os.getcwd(), "*.csv"))
@@ -34,6 +34,7 @@ for num, file in enumerate(csv_files):
                         this_column = compound_order[row[index-1]] + 1
                         ws.cell(row=this_row, 
                                 column=this_column).value = float(value)
+                          
                     # catch all compounds not defined in the dictionary yet and place
                     # their values after "Sum Before Norm." cell    
                     except KeyError:
@@ -41,15 +42,22 @@ for num, file in enumerate(csv_files):
                         this_column = len(compound_order) + extras
                         compound_cell = ws.cell(row = substance_row, column = this_column)
                         compound_cell.value = row[index-1]
-                        compound_cell.font = Font(bold=True)
-                        
-                        print(f"{row[index-1]} : {value} , row = {this_row} col = {len(compound_order)+extras}")
+                        compound_cell.font = Font(bold=True)                                            
                         ws.cell(row = this_row, 
                                 column = this_column).value = float(value)
+                        
                 elif index == 0:
                     ws.cell(row=substance_row + row_num + 1, 
                             column=1).value = value
+                    ws.cell(row=substance_row + row_num + 1, 
+                            column=1).alignment = Alignment(horizontal='right')                 
                     
+    for row in ws.iter_rows(min_row=substance_row+1, min_col=2):
+        for cell in row:
+            if not cell.value:
+                cell.value = "< 0.001"
+            cell.alignment = Alignment(horizontal='right')
+    
     excel_name = f"test_excel_{num+1}.xlsx"             
     wb.save(excel_name)  
     wb.close()     
@@ -59,8 +67,8 @@ for num, file in enumerate(csv_files):
 def move_file(names: list, dst: str) -> None:
     """ Moves a list of files to the destination folder
         args:
-            - name: name of the file + file extension
-            - dst: destination folder, only string
+            - name: name of the file with file extension
+            - dst: destination folder
     """
     for name in names:
         dir = os.path.join(os.getcwd(), dst)
@@ -68,5 +76,5 @@ def move_file(names: list, dst: str) -> None:
             os.mkdir(dir)
         shutil.move(name, dir)
     
-move_file(excels, 'Raportit')
-move_file(csv_files, 'CSV')
+#move_file(excels, 'Raportit')
+#move_file(csv_files, 'CSV')
