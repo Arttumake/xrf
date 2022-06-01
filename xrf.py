@@ -2,6 +2,8 @@ import csv
 import os
 import glob
 import shutil
+import datetime
+import itertools
 
 import openpyxl as xl
 from openpyxl.styles import Font, Alignment
@@ -10,6 +12,7 @@ from openpyxl.styles import Font, Alignment
 csv_files = glob.glob(os.path.join(os.getcwd(), "*.csv"))
 excel_file = "Tulostiedosto ver2.xlsx"
 excels = []
+date_format = "%Y-%b-%d %X" # how CSV-file represents a date
 
 wb = xl.load_workbook(excel_file)
 ws = wb.active # define worksheet to work on
@@ -24,13 +27,29 @@ compound_order.pop(None, None) # remove trailing none-key from dict if it exists
 
 for num, file in enumerate(csv_files):
     with open(file) as csv_file:
+        # 15 lines of code ahead that could have been a lot easier with pandas
         file_reader = csv.reader(csv_file, delimiter=',')
+        dates_rows = {}
         for row_num, row in enumerate(file_reader):
+            dates_rows[datetime.datetime.strptime(row[1], date_format)] = row_num+1
+        csv_file.seek(0)    
+        dates = []
+        sorted_dates_rows = {}
+        for key, value in dates_rows.items():
+            dates.append(key)
+        dates.sort()
+        
+        for date in dates:
+            sorted_dates_rows[date] = dates_rows[date]    
+        print(sorted_dates_rows)
+        row_order = [item for item in sorted_dates_rows.values()]
+
+        for (row_num, row) in zip(row_order, file_reader):
             extras = 1 # count of extra compounds after "sum before norm."-cell
             for index, value in enumerate(row):
                 if index > 1 and index % 2 != 0:
                     try:
-                        this_row = substance_row + row_num + 1
+                        this_row = substance_row + row_num
                         this_column = compound_order[row[index-1]] + 1
                         ws.cell(row=this_row, 
                                 column=this_column).value = float(value)
@@ -42,14 +61,15 @@ for num, file in enumerate(csv_files):
                         this_column = len(compound_order) + extras
                         compound_cell = ws.cell(row = substance_row, column = this_column)
                         compound_cell.value = row[index-1]
-                        compound_cell.font = Font(bold=True)                                            
+                        compound_cell.font = Font(bold=True)
+                        compound_cell.alignment = Alignment(horizontal='right')
                         ws.cell(row = this_row, 
                                 column = this_column).value = float(value)
                         
                 elif index == 0:
-                    ws.cell(row=substance_row + row_num + 1, 
+                    ws.cell(row=substance_row + row_num, 
                             column=1).value = value
-                    ws.cell(row=substance_row + row_num + 1, 
+                    ws.cell(row=substance_row + row_num, 
                             column=1).alignment = Alignment(horizontal='right')                 
                     
     for row in ws.iter_rows(min_row=substance_row+1, min_col=2):
