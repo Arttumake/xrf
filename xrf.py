@@ -10,13 +10,13 @@ from openpyxl.styles import Font, Alignment
 
 # group up all the csv files in this directory to a list
 csv_files = glob.glob(os.path.join(os.getcwd(), "*.csv"))
-excel_file = "Tulostiedosto ver2.xlsx"
+excel_file = "Tulostiedosto Uniquant ver31.xlsx"
 excels = []
 date_format = "%Y-%b-%d %X" # how CSV-file represents a date
 
 wb = xl.load_workbook(excel_file)
 ws = wb.active # define worksheet to work on
-substance_row = 8 # the row where all the compounds are listed
+substance_row = 11 # the row where all the compounds are listed
 
 compound_order = {} # dictionary to hold compound as key and its column number as value
 for row in ws.iter_rows(min_row=substance_row, max_row=substance_row, min_col=2):
@@ -27,11 +27,13 @@ compound_order.pop(None, None) # remove trailing none-key from dict if it exists
 
 for num, file in enumerate(csv_files):
     with open(file) as csv_file:
-        # 15 lines of code ahead that could have been a lot easier with pandas
+        """ 15 lines of code ahead that could have been a lot easier to implement with pandas.
+            Sorts each row based on date and then rows are looped through in that order.
+        """
         file_reader = csv.reader(csv_file, delimiter=',')
         dates_rows = {}
         for row_num, row in enumerate(file_reader):
-            dates_rows[datetime.datetime.strptime(row[1], date_format)] = row_num+1
+            dates_rows[datetime.datetime.strptime(row[3], date_format)] = row_num+1
         csv_file.seek(0)    
         dates = []
         sorted_dates_rows = {}
@@ -41,21 +43,22 @@ for num, file in enumerate(csv_files):
         
         for date in dates:
             sorted_dates_rows[date] = dates_rows[date]    
-        print(sorted_dates_rows)
         row_order = [item for item in sorted_dates_rows.values()]
-
-        for (row_num, row) in zip(row_order, file_reader):
+        
+        # loop through samples (sorted by date) and csv iterable
+        for (row_num, row) in zip(row_order, file_reader):  
             extras = 1 # count of extra compounds after "sum before norm."-cell
-            for index, value in enumerate(row):
-                if index > 1 and index % 2 != 0:
+            for index, value in enumerate(row): # loop through each value in csv row
+                if index > 3 and index % 2 != 0:
                     try:
-                        this_row = substance_row + row_num
-                        this_column = compound_order[row[index-1]] + 1
+                        this_row = substance_row + row_num + 2 # +2 for the extra 2 rows under compounds
+                        # set column based on compound's order in excel template
+                        this_column = compound_order[row[index-1]] + 1 
                         ws.cell(row=this_row, 
                                 column=this_column).value = float(value)
                           
-                    # catch all compounds not defined in the dictionary yet and place
-                    # their values after "Sum Before Norm." cell    
+                    # catch all compounds not defined in the dictionary and place
+                    # their values after "Sum Before Norm." cell
                     except KeyError:
                         extras += 1
                         this_column = len(compound_order) + extras
@@ -65,18 +68,21 @@ for num, file in enumerate(csv_files):
                         compound_cell.alignment = Alignment(horizontal='right')
                         ws.cell(row = this_row, 
                                 column = this_column).value = float(value)
-                        
                 elif index == 0:
-                    ws.cell(row=substance_row + row_num, 
+                    method = value
+                    ws.cell(row=5, column=2).value = method # set value on method row
+                elif index == 1:
+                    ws.cell(row=substance_row + row_num + 2, 
                             column=1).value = value
-                    ws.cell(row=substance_row + row_num, 
-                            column=1).alignment = Alignment(horizontal='right')                 
-                    
-    for row in ws.iter_rows(min_row=substance_row+1, min_col=2):
-        for cell in row:
-            if not cell.value:
-                cell.value = "< 0.001"
-            cell.alignment = Alignment(horizontal='right')
+                    ws.cell(row=substance_row + row_num + 2, 
+                            column=1).alignment = Alignment(horizontal='right')
+    # check for None-values and insert value to them                
+    for row in ws.iter_rows(min_row=substance_row+1+2, min_col=1):
+        if row[0].value:    # check that row has a sample name         
+            for cell in row:
+                if not cell.value:
+                    cell.value = "< 0.001"
+                cell.alignment = Alignment(horizontal='right')
     
     excel_name = f"test_excel_{num+1}.xlsx"             
     wb.save(excel_name)  
