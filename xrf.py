@@ -3,6 +3,7 @@ import os
 import glob
 import shutil
 import datetime
+import ctypes
 import itertools
 
 import openpyxl as xl
@@ -10,7 +11,7 @@ from openpyxl.styles import Font, Alignment
 
 # group up all the csv files in this directory to a list
 csv_files = glob.glob(os.path.join(os.getcwd(), "*.csv"))
-excel_file = "Tulostiedosto Uniquant ver31.xlsx"
+excel_file = "Tulostiedosto Sulate ver.xlsx"
 excels = []
 date_format = "%Y-%b-%d %X" # how CSV-file represents a date
 
@@ -22,12 +23,12 @@ compound_order = {} # dictionary to hold compound as key and its column number a
 for row in ws.iter_rows(min_row=substance_row, max_row=substance_row, min_col=2):
     for column, cell in enumerate(row):
         compound_order[cell.value] = column + 1
-        
+
 compound_order.pop(None, None) # remove trailing none-key from dict if it exists
 
 for num, file in enumerate(csv_files):
     with open(file) as csv_file:
-        """ 15 lines of code ahead that could have been a lot easier to implement with pandas.
+        """ 15 lines of code ahead that could possibly be a lot easier to implement with pandas.
             Sorts each row based on date and then rows are looped through in that order.
         """
         file_reader = csv.reader(csv_file, delimiter=',')
@@ -45,37 +46,41 @@ for num, file in enumerate(csv_files):
             sorted_dates_rows[date] = dates_rows[date]    
         row_order = [item for item in sorted_dates_rows.values()]
         
+        methods = [] # keep track of the methods of each row in csv
         # loop through samples (sorted by date) and csv iterable
-        for (row_num, row) in zip(row_order, file_reader):  
+        for (row_num, row) in zip(row_order, file_reader):
+             
             extras = 1 # count of extra compounds after "sum before norm."-cell
-            for index, value in enumerate(row): # loop through each value in csv row
-                if index > 3 and index % 2 != 0:
+            for col, value in enumerate(row): # loop through each value in csv row
+                if col > 3 and col % 2 != 0:
                     try:
                         this_row = substance_row + row_num + 2 # +2 for the extra 2 rows under compounds
                         # set column based on compound's order in excel template
-                        this_column = compound_order[row[index-1]] + 1 
+                        this_column = compound_order[row[col-1]] + 1 
                         ws.cell(row=this_row, 
                                 column=this_column).value = float(value)
-                          
+
                     # catch all compounds not defined in the dictionary and place
                     # their values after "Sum Before Norm." cell
                     except KeyError:
                         extras += 1
                         this_column = len(compound_order) + extras
                         compound_cell = ws.cell(row = substance_row, column = this_column)
-                        compound_cell.value = row[index-1]
+                        compound_cell.value = row[col-1]
                         compound_cell.font = Font(bold=True)
                         compound_cell.alignment = Alignment(horizontal='right')
                         ws.cell(row = this_row, 
                                 column = this_column).value = float(value)
-                elif index == 0:
-                    method = value
-                    ws.cell(row=5, column=2).value = method # set value on method row
-                elif index == 1:
+                elif col == 0:
+                    ws.cell(row=5, column=2).value = value 
+                    methods.append(value)
+
+                elif col == 1:
                     ws.cell(row=substance_row + row_num + 2, 
                             column=1).value = value
                     ws.cell(row=substance_row + row_num + 2, 
                             column=1).alignment = Alignment(horizontal='right')
+    
     # check for None-values and insert value to them                
     for row in ws.iter_rows(min_row=substance_row+1+2, min_col=1):
         if row[0].value:    # check that row has a sample name         
@@ -101,6 +106,8 @@ def move_file(names: list, dst: str) -> None:
         if not os.path.exists(dir):
             os.mkdir(dir)
         shutil.move(name, dir)
-    
+        
+if len(methods) > 1:        
+    ctypes.windll.user32.MessageBoxW(0, "More than 1 method present in CSV-file", "Warning", 0)    
 #move_file(excels, 'Raportit')
 #move_file(csv_files, 'CSV')
