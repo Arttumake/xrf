@@ -28,13 +28,17 @@ compound_order.pop(None, None) # remove trailing none-key from dict if it exists
 
 for num, file in enumerate(csv_files):
     with open(file) as csv_file:
-        """ 15 lines of code ahead that could possibly be a lot easier to implement with pandas.
-            Sorts each row based on date and then rows are looped through in that order.
-        """
+
         file_reader = csv.reader(csv_file, delimiter=',')
         dates_rows = {}
         for row_num, row in enumerate(file_reader):
-            dates_rows[datetime.datetime.strptime(row[3], date_format)] = row_num+1
+            date = datetime.datetime.strptime(row[3], date_format)
+            dates_rows[date] = row_num+1
+
+        current = datetime.datetime.now()
+        # construct the date-portion of the report file's name
+        file_date = f"{current.weekday()}.{current.month}.{current.year}"
+
         csv_file.seek(0)    
         dates = []
         sorted_dates_rows = {}
@@ -46,9 +50,10 @@ for num, file in enumerate(csv_files):
             sorted_dates_rows[date] = dates_rows[date]    
         row_order = [item for item in sorted_dates_rows.values()]
         
+        sid2 = "" 
         methods = [] # keep track of the methods of each row in csv
         # loop through samples (sorted by date) and csv iterable
-        for (row_num, row) in zip(row_order, file_reader):
+        for index, (row_num, row) in enumerate(zip(row_order, file_reader)):
              
             extras = 1 # count of extra compounds after "sum before norm."-cell
             for col, value in enumerate(row): # loop through each value in csv row
@@ -80,6 +85,8 @@ for num, file in enumerate(csv_files):
                             column=1).value = value
                     ws.cell(row=substance_row + row_num + 2, 
                             column=1).alignment = Alignment(horizontal='right')
+                if col == 2 and index == 0:
+                    sid2 = value
     
     # check for None-values and insert value to them                
     for row in ws.iter_rows(min_row=substance_row+1+2, min_col=1):
@@ -89,14 +96,18 @@ for num, file in enumerate(csv_files):
                     cell.value = "< 0.001"
                 cell.alignment = Alignment(horizontal='right')
     
-    excel_name = f"test_excel_{num+1}.xlsx"             
+    excel_name = f"{sid2} - {file_date}.xlsx"
+    csv_name = f"{sid2} - {file_date}.csv"
+    os.rename(file, csv_name)
+               
     wb.save(excel_name)  
     wb.close()     
     excel_path = os.path.join(os.getcwd(), excel_name)
-    excels.append(excel_name)             
-                        
+    excels.append(excel_path)
+
 def move_file(names: list, dst: str) -> None:
-    """ Moves a list of files to the destination folder
+    """ Moves a list of files to the destination folder, assuming script is
+        in the same folder as the files being moved.
         args:
             - name: name of the file with file extension
             - dst: destination folder
@@ -107,7 +118,8 @@ def move_file(names: list, dst: str) -> None:
             os.mkdir(dir)
         shutil.move(name, dir)
         
-if len(methods) > 1:        
-    ctypes.windll.user32.MessageBoxW(0, "More than 1 method present in CSV-file", "Warning", 0)    
-#move_file(excels, 'Raportit')
-#move_file(csv_files, 'CSV')
+if len(methods) > 1:   # present a warning if multiple methods in csv file     
+    ctypes.windll.user32.MessageBoxW(0, "More than 1 method present in CSV-file", "Warning", 0)  
+      
+move_file(excels, 'Raportit')
+move_file(csv_files, 'CSV')
