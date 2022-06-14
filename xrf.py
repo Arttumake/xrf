@@ -4,14 +4,13 @@ import glob
 import shutil
 import datetime
 import ctypes
-import itertools
 
 import openpyxl as xl
 from openpyxl.styles import Font, Alignment
 
 # group up all the csv files in this directory to a list
 csv_files = glob.glob(os.path.join(os.getcwd(), "*.csv"))
-excel_file = "Tulostiedosto Sulate ver.xlsx"
+excel_file = "Uniquant.xlsx"
 excels = []
 date_format = "%Y-%b-%d %X" # how CSV-file represents a date
 
@@ -28,33 +27,35 @@ compound_order.pop(None, None) # remove trailing none-key from dict if it exists
 
 for num, file in enumerate(csv_files):
     with open(file) as csv_file:
-
         file_reader = csv.reader(csv_file, delimiter=',')
         dates_rows = {}
+        # get each date in csv and put them in dictionary as datetime object keys
+        # and row numbers being the values
         for row_num, row in enumerate(file_reader):
             date = datetime.datetime.strptime(row[3], date_format)
             dates_rows[date] = row_num+1
-
-        current = datetime.datetime.now()
+            
         # construct the date-portion of the report file's name
-        file_date = f"{current.weekday()}.{current.month}.{current.year}"
+        current = datetime.datetime.now()
+        file_date = f"{current.day}.{current.month}.{current.year}"
 
-        csv_file.seek(0)    
         dates = []
-        sorted_dates_rows = {}
+        # sort the dates
         for key, value in dates_rows.items():
             dates.append(key)
         dates.sort()
-        
+        sorted_dates_rows = {}
+
         for date in dates:
-            sorted_dates_rows[date] = dates_rows[date]    
+            sorted_dates_rows[date] = dates_rows[date]   
+            
+        # row_order indicates in which order the csv rows should be put to report 
         row_order = [item for item in sorted_dates_rows.values()]
+        csv_file.seek(0) # reset iterator to beginning
         
-        sid2 = "" 
-        methods = [] # keep track of the methods of each row in csv
+        methods = {} # keep track of the methods of each row in csv
         # loop through samples (sorted by date) and csv iterable
         for index, (row_num, row) in enumerate(zip(row_order, file_reader)):
-             
             extras = 1 # count of extra compounds after "sum before norm."-cell
             for col, value in enumerate(row): # loop through each value in csv row
                 if col > 3 and col % 2 != 0:
@@ -78,15 +79,17 @@ for num, file in enumerate(csv_files):
                                 column = this_column).value = float(value)
                 elif col == 0:
                     ws.cell(row=5, column=2).value = value 
-                    methods.append(value)
-
+                    methods[csv_file] = value
+                    
+                # sample name column from csv to excel report
                 elif col == 1:
                     ws.cell(row=substance_row + row_num + 2, 
                             column=1).value = value
                     ws.cell(row=substance_row + row_num + 2, 
                             column=1).alignment = Alignment(horizontal='right')
+                # get SID2 from first row, column 3
                 if col == 2 and index == 0:
-                    sid2 = value
+                    sid2 = value # to be used in naming the report
     
     # check for None-values and insert value to them                
     for row in ws.iter_rows(min_row=substance_row+1+2, min_col=1):
@@ -96,12 +99,13 @@ for num, file in enumerate(csv_files):
                     cell.value = "< 0.001"
                 cell.alignment = Alignment(horizontal='right')
     
+    # rename csv file and save a new excel file
     excel_name = f"{sid2} - {file_date}.xlsx"
     csv_name = f"{sid2} - {file_date}.csv"
-    os.rename(file, csv_name)
-               
+    os.rename(file, csv_name)           
     wb.save(excel_name)  
     wb.close()     
+
     excel_path = os.path.join(os.getcwd(), excel_name)
     excels.append(excel_path)
 
@@ -117,9 +121,9 @@ def move_file(names: list, dst: str) -> None:
         if not os.path.exists(dir):
             os.mkdir(dir)
         shutil.move(name, dir)
-        
-if len(methods) > 1:   # present a warning if multiple methods in csv file     
+# present a warning if multiple methods in csv file        
+if len(methods) > 1:
     ctypes.windll.user32.MessageBoxW(0, "More than 1 method present in CSV-file", "Warning", 0)  
       
-move_file(excels, 'Raportit')
-move_file(csv_files, 'CSV')
+#move_file(excels, 'Raportit')
+#move_file(csv_files, 'CSV')
