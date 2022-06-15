@@ -10,20 +10,19 @@ from openpyxl.styles import Font, Alignment
 
 # group up all the csv files in this directory to a list
 csv_files = glob.glob(os.path.join(os.getcwd(), "*.csv"))
-excel_file = "Uniquant.xlsx"
+puriste_template = "Puriste.xlsx"
+sulate_template = "Sulate.xlsx"
+uniquant_template = "Uniquant.xlsx"
 excels = []
 date_format = "%Y-%b-%d %X" # how CSV-file represents a date
+substance_row = 11 # the row where all the compounds are listed in excel templates
 
-wb = xl.load_workbook(excel_file)
-ws = wb.active # define worksheet to work on
-substance_row = 11 # the row where all the compounds are listed
-
-compound_order = {} # dictionary to hold compound as key and its column number as value
-for row in ws.iter_rows(min_row=substance_row, max_row=substance_row, min_col=2):
-    for column, cell in enumerate(row):
-        compound_order[cell.value] = column + 1
-
-compound_order.pop(None, None) # remove trailing none-key from dict if it exists
+# csv-file method and the excel template associated with it
+method_files = {
+    "X_UQ_3600W Oxides" : uniquant_template,
+    "5. PhosphateConcentrateMajors_FB 0.2" : sulate_template,
+    "1. PhosphateRocks_PP 1.0" : puriste_template
+}
 
 for num, file in enumerate(csv_files):
     with open(file) as csv_file:
@@ -54,18 +53,49 @@ for num, file in enumerate(csv_files):
         csv_file.seek(0) # reset iterator to beginning
         
         methods = {} # keep track of the methods of each row in csv
+        compound_order = {} # dictionary to hold compound as key and its column number as value
         # loop through samples (sorted by date) and csv iterable
         for index, (row_num, row) in enumerate(zip(row_order, file_reader)):
             extras = 1 # count of extra compounds after "sum before norm."-cell
             for col, value in enumerate(row): # loop through each value in csv row
-                if col > 3 and col % 2 != 0:
+                if col == 0:
+                    if index == 0:  # check what excel template to use and load the excel
+                        template = method_files[value]
+                        wb = xl.load_workbook(template)
+                        ws = wb.active # define worksheet to work on
+                        
+                        for rows in ws.iter_rows(min_row=substance_row, max_row=substance_row, min_col=2):
+                            for column, cell in enumerate(rows):
+                                compound_order[cell.value] = column + 1
+                        # check if template excel is puriste/sulate and assign limits to compounds
+                        if template != uniquant_template:
+                            wb_limits = xl.load_workbook("Määritysrajat.xlsx")
+                            ws_limits = wb_limits.active
+                            if template == sulate_template:
+                                limits_sulate = {}
+                                for rows in ws_limits.iter_rows(min_row=4, min_col=2, max_col=4):
+                                    if not rows[0].value:
+                                        break
+                                    limits_sulate[rows[0].value] = (rows[1].value, rows[2].value)
+                            elif template == puriste_template:
+                                limits_puriste = {}
+                                for rows in ws_limits.iter_rows(min_row=4, min_col=6, max_col=8):
+                                    if not rows[0].value:
+                                        break
+                                    limits_puriste[rows[0].value] = (rows[1].value, rows[2].value)    
+                        
+                        compound_order.pop(None, None) # remove trailing none-key from dict if it exists
+                    ws.cell(row=5, column=2).value = value 
+                    methods[csv_file] = value
+                        
+                elif col > 3 and col % 2 != 0:
                     try:
                         this_row = substance_row + row_num + 2 # +2 for the extra 2 rows under compounds
-                        # set column based on compound's order in excel template
-                        this_column = compound_order[row[col-1]] + 1 
+                        # set column number based on compound's order in excel template
+                        this_column = compound_order[row[col-1]] + 1
                         ws.cell(row=this_row, 
                                 column=this_column).value = float(value)
-
+                            
                     # catch all compounds not defined in the dictionary and place
                     # their values after "Sum Before Norm." cell
                     except KeyError:
@@ -76,11 +106,7 @@ for num, file in enumerate(csv_files):
                         compound_cell.font = Font(bold=True)
                         compound_cell.alignment = Alignment(horizontal='right')
                         ws.cell(row = this_row, 
-                                column = this_column).value = float(value)
-                elif col == 0:
-                    ws.cell(row=5, column=2).value = value 
-                    methods[csv_file] = value
-                    
+                                column = this_column).value = float(value)                
                 # sample name column from csv to excel report
                 elif col == 1:
                     ws.cell(row=substance_row + row_num + 2, 
@@ -92,13 +118,32 @@ for num, file in enumerate(csv_files):
                     sid2 = value # to be used in naming the report
     
     # check for None-values and insert value to them                
-    for row in ws.iter_rows(min_row=substance_row+1+2, min_col=1):
+    for row in ws.iter_rows(min_row=substance_row+1+2, min_col=1, max_col=len(compound_order)):
         if row[0].value:    # check that row has a sample name         
             for cell in row:
                 if not cell.value:
                     cell.value = "< 0.001"
                 cell.alignment = Alignment(horizontal='right')
     
+    # check limits for sulate/puriste values and overwrite if over/under
+    if template == sulate_template:
+        for key, value in limits_sulate.items():
+            for col in ws.iter_cols(min_row=substance_row+3, min_col=compound_order[key]+1, max_col=compound_order[key]+1):
+                for cell in col:
+                    if cell.value and cell.value < limits_sulate[key][0]:
+                        cell.value = f"< {limits_sulate[key][0]}"
+                    elif cell.value and cell.value > limits_sulate[key][1]:
+                        cell.value = f"*{limits_sulate[key][1]}"
+    
+    if template == puriste_template:
+        for key, value in limits_puriste.items():
+            for col in ws.iter_cols(min_row=substance_row+3, min_col=compound_order[key]+1, max_col=compound_order[key]+1):
+                for cell in col:
+                    if cell.value and cell.value < limits_puriste[key][0]:
+                        cell.value = f"< {limits_puriste[key][0]}"
+                    elif cell.value and cell.value > limits_puriste[key][1]:
+                        cell.value = f"> {limits_puriste[key][1]}"                        
+            
     # rename csv file and save a new excel file
     excel_name = f"{sid2} - {file_date}.xlsx"
     csv_name = f"{sid2} - {file_date}.csv"
