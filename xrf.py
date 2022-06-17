@@ -42,13 +42,13 @@ for num, file in enumerate(csv_files):
         # sort the dates
         for key, value in dates_rows.items():
             dates.append(key)
-        dates.sort()
         sorted_dates_rows = {}
-
-        for date in dates:
-            sorted_dates_rows[date] = dates_rows[date]   
+        dates.sort()
+        
+        for i, key in enumerate(dates_rows.keys()):
+            sorted_dates_rows[key] = dates.index(key) + 1
             
-        # row_order indicates in which order the csv rows should be put to report 
+        # row_order shows where each row in csv is placed in excel report 
         row_order = [item for item in sorted_dates_rows.values()]
         csv_file.seek(0) # reset iterator to beginning
         
@@ -58,6 +58,7 @@ for num, file in enumerate(csv_files):
         for index, (row_num, row) in enumerate(zip(row_order, file_reader)):
             extras = 1 # count of extra compounds after "sum before norm."-cell
             for col, value in enumerate(row): # loop through each value in csv row
+                current_row =  substance_row + row_num + 2  # +2 for the extra 2 rows under compounds
                 if col == 0:
                     if index == 0:  # check what excel template to use and load the excel
                         template = method_files[value]
@@ -87,15 +88,18 @@ for num, file in enumerate(csv_files):
                         compound_order.pop(None, None) # remove trailing none-key from dict if it exists
                     ws.cell(row=5, column=2).value = value 
                     methods[csv_file] = value
-                        
+            
                 elif col > 3 and col % 2 != 0:
                     try:
-                        this_row = substance_row + row_num + 2 # +2 for the extra 2 rows under compounds
                         # set column number based on compound's order in excel template
                         this_column = compound_order[row[col-1]] + 1
-                        ws.cell(row=this_row, 
+                        ws.cell(row=current_row, 
                                 column=this_column).value = float(value)
-                            
+                        # calculate iron value for each row based on Fe2O3 value
+                        if row[col-1] == "Fe2O3":
+                            fe_column = compound_order["Fe*"] + 1
+                            ws.cell(row = current_row, 
+                                    column = fe_column).value = round(0.69945 * float(value),3)
                     # catch all compounds not defined in the dictionary and place
                     # their values after "Sum Before Norm." cell
                     except KeyError:
@@ -105,18 +109,21 @@ for num, file in enumerate(csv_files):
                         compound_cell.value = row[col-1]
                         compound_cell.font = Font(bold=True)
                         compound_cell.alignment = Alignment(horizontal='right')
-                        ws.cell(row = this_row, 
-                                column = this_column).value = float(value)                
+                        ws.cell(row = current_row, 
+                                column = this_column).value = float(value)
+                                       
                 # sample name column from csv to excel report
                 elif col == 1:
-                    ws.cell(row=substance_row + row_num + 2, 
+                    ws.cell(row=current_row, 
                             column=1).value = value
-                    ws.cell(row=substance_row + row_num + 2, 
+                    ws.cell(row=current_row, 
                             column=1).alignment = Alignment(horizontal='right')
+                    
                 # get SID2 from first row, column 3
-                if col == 2 and index == 0:
+                elif col == 2 and index == 0:
                     sid2 = value # to be used in naming the report
-    
+                
+
     # check for None-values and insert value to them                
     for row in ws.iter_rows(min_row=substance_row+1+2, min_col=1, max_col=len(compound_order)):
         if row[0].value:    # check that row has a sample name         
