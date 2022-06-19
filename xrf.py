@@ -1,4 +1,5 @@
 import csv
+from hashlib import algorithms_available
 import os
 import glob
 import shutil
@@ -6,7 +7,9 @@ import datetime
 import ctypes
 
 import openpyxl as xl
-from openpyxl.styles import Font, Alignment
+from openpyxl.styles.fonts import Font
+from openpyxl.styles.alignment import Alignment
+from openpyxl.styles.borders import Border, Side
 
 # group up all the csv files in this directory to a list
 csv_files = glob.glob(os.path.join(os.getcwd(), "*.csv"))
@@ -16,6 +19,9 @@ uniquant_template = "Uniquant.xlsx"
 excels = []
 date_format = "%Y-%b-%d %X" # how CSV-file represents a date
 substance_row = 11 # the row where all the compounds are listed in excel templates
+
+csv_dir = "CSV" # CVS directory name
+excel_dir = "Raportit" # Excel report directory name
 
 # csv-file method and the excel template associated with it
 method_files = {
@@ -86,7 +92,7 @@ for num, file in enumerate(csv_files):
                                     limits_puriste[rows[0].value] = (rows[1].value, rows[2].value)    
                         
                         compound_order.pop(None, None) # remove trailing none-key from dict if it exists
-                    ws.cell(row=5, column=2).value = value 
+                    ws.cell(row=5, column=2).value = value # place method name from csv to excel cell
                     methods[csv_file] = value
             
                 elif col > 3 and col % 2 != 0:
@@ -108,10 +114,23 @@ for num, file in enumerate(csv_files):
                         compound_cell = ws.cell(row = substance_row, column = this_column)
                         compound_cell.value = row[col-1]
                         compound_cell.font = Font(bold=True)
-                        compound_cell.alignment = Alignment(horizontal='right')
-                        ws.cell(row = current_row, 
-                                column = this_column).value = float(value)
-                                       
+                        compound_cell.alignment = Alignment(horizontal='center')
+                        compound_cell.border = Border(bottom=Side(style='thin'))
+                        try:
+                            ws.cell(row = current_row, 
+                                    column = this_column).value = float(value)
+                        except ValueError:
+                            continue
+                        # styling for the 2 rows below compound
+                        below_compound = ws.cell(row = substance_row + 1, column = this_column)
+                        below_compound.value = "(%)"
+                        below_compound.alignment = Alignment(horizontal='center')
+                        below_compound.font = Font(size=8)
+                        pp_xrf12 = ws.cell(row = substance_row + 2, column = this_column)
+                        pp_xrf12.value = ws.cell(row = substance_row + 2, column = 2).value
+                        pp_xrf12.font = Font(size=8)
+                        pp_xrf12.alignment = Alignment(horizontal='center')
+                                           
                 # sample name column from csv to excel report
                 elif col == 1:
                     ws.cell(row=current_row, 
@@ -161,21 +180,35 @@ for num, file in enumerate(csv_files):
     excel_path = os.path.join(os.getcwd(), excel_name)
     excels.append(excel_path)
 
-def move_file(names: list, dst: str) -> None:
-    """ Moves a list of files to the destination folder, assuming script is
+def move_files(names: list, dst: str) -> None:
+    """ Moves a list of files to the destination folder, script should be
         in the same folder as the files being moved.
         args:
             - name: name of the file with file extension
-            - dst: destination folder
+            - dst: destination folder (not path, string only)
     """
     for name in names:
         dir = os.path.join(os.getcwd(), dst)
         if not os.path.exists(dir):
             os.mkdir(dir)
         shutil.move(name, dir)
+    
+def copy_files(names: list, dst: str) -> None:
+    """ Copies a list of files to the destination folder, script should be
+        in the same folder as the files being moved.
+        args:
+            - name: name of the file with file extension
+            - dst: destination folder (not path, string only)
+    """    
+    for name in names:
+        dir = os.path.join(os.getcwd(), dst)
+        if not os.path.exists(dir):
+            os.mkdir(dir)
+        shutil.copy(name, dir)
+        
 # present a warning if multiple methods in csv file        
 if len(methods) > 1:
     ctypes.windll.user32.MessageBoxW(0, "More than 1 method present in CSV-file", "Warning", 0)  
       
-#move_file(excels, 'Raportit')
-#move_file(csv_files, 'CSV')
+copy_files(excels, excel_dir)
+move_files(csv_files, csv_dir)

@@ -1,7 +1,9 @@
 *csv
 *xlsx
 
-/virtual_env
-/__pycache__
+virtual_env/
+__pycache__/
+temps/
+Raportit/
 
 notes.txt
