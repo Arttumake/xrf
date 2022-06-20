@@ -13,15 +13,18 @@ from openpyxl.styles.borders import Border, Side
 
 # group up all the csv files in this directory to a list
 csv_files = glob.glob(os.path.join(os.getcwd(), "*.csv"))
+
+uniquant_template = "Uniquant.xlsx"
 puriste_template = "Puriste.xlsx"
 sulate_template = "Sulate.xlsx"
-uniquant_template = "Uniquant.xlsx"
-excels = []
-date_format = "%Y-%b-%d %X" # how CSV-file represents a date
-substance_row = 11 # the row where all the compounds are listed in excel templates
 
 csv_dir = "CSV" # CVS directory name
 excel_dir = "Raportit" # Excel report directory name
+
+excels = []
+csvs = [] 
+date_format = "%Y-%b-%d %X" # how CSV-file represents a date
+substance_row = 11 # the row where all the compounds are listed in excel templates
 
 # csv-file method and the excel template associated with it
 method_files = {
@@ -178,6 +181,9 @@ for num, file in enumerate(csv_files):
     wb.close()     
 
     excel_path = os.path.join(os.getcwd(), excel_name)
+    csv_path = os.path.join(os.getcwd(), csv_name)
+    
+    csvs.append(csv_path)
     excels.append(excel_path)
 
 def move_files(names: list, dst: str) -> None:
@@ -211,4 +217,4 @@ if len(methods) > 1:
     ctypes.windll.user32.MessageBoxW(0, "More than 1 method present in CSV-file", "Warning", 0)  
       
 copy_files(excels, excel_dir)
-move_files(csv_files, csv_dir)
+move_files(csvs, csv_dir)
