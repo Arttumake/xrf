@@ -4,12 +4,14 @@ import glob
 import shutil
 import datetime
 import ctypes
+import warnings
 
 import openpyxl as xl
 from openpyxl.styles.fonts import Font
 from openpyxl.styles.alignment import Alignment
 from openpyxl.styles.borders import Border, Side
 
+warnings.filterwarnings("ignore", category=UserWarning, module='openpyxl')
 """
 Done by: Arttu Mäkelä 
 For: CRS Laboratories
@@ -65,6 +67,8 @@ for num, file in enumerate(csv_files):
         # construct the date-portion of the report file's name
         current = datetime.datetime.now()
         file_date = f"{current.day}.{current.month}.{current.year}"
+        # more exact time in the case that multiple reports are created from one csv
+        file_date_exact = file_date + f" {current.hour} {current.minute} {current.second}"
 
         dates = []
         # sort the dates
@@ -197,32 +201,47 @@ for num, file in enumerate(csv_files):
     # rename csv file and save a new excel file
     excel_name = f"{sid2} - {file_date}.xlsx"
     csv_name = f"{sid2} - {file_date}.csv"
-    os.rename(file, csv_name)           
+    
+    os.rename(file, csv_name)    
     wb.save(excel_name)  
     wb.close()     
 
-    excel_path = os.path.join(os.getcwd(), excel_name)
-    csv_path = os.path.join(os.getcwd(), csv_name)
+    #excel_path = os.path.join(os.getcwd(), excel_name)
+    #csv_path = os.path.join(os.getcwd(), csv_name)
     
-    csvs.append(csv_path)
-    excels.append(excel_path)
+    csvs.append(csv_name)
+    excels.append(excel_name)
 
 def move_files(names: list, dst: str) -> None:
     """ Moves a list of files to the destination folder, script should be
         in the same folder as the files being moved.
+        Renames copied file if file already exist in destination folder by
+        adding more accurate timestamp
+        
         args:
             - name: name of the file with file extension
             - dst: destination folder (not path, string only)
     """
     for name in names:
         dir = os.path.join(os.getcwd(), dst)
+        tests = os.path.join(dir, name)
         if not os.path.exists(dir):
             os.mkdir(dir)
-        shutil.move(name, dir)
+        if os.path.exists(tests):
+            file_path = os.path.join(os.getcwd(), name)
+            new_name = f"{sid2} - {file_date_exact}.csv"
+            os.rename(file_path, new_name) 
+            name_path = os.path.join(os.getcwd(), new_name)
+            shutil.move(name_path, dir)
+        else:
+            shutil.move(name, dir) 
     
 def copy_files(names: list, dst: str) -> None:
     """ Copies a list of files to the destination folder, script should be
         in the same folder as the files being moved.
+        Renames copied file if file already exist in destination folder by
+        adding more accurate timestamp
+        
         args:
             - name: name of the file with file extension
             - dst: destination folder (not path, string only)
@@ -231,7 +250,15 @@ def copy_files(names: list, dst: str) -> None:
         dir = os.path.join(os.getcwd(), dst)
         if not os.path.exists(dir):
             os.mkdir(dir)
-        shutil.copy(name, dir)
+        if os.path.exists(os.path.join(dir, name)):
+            file_path = os.path.join(os.getcwd(), name)
+            new_name = f"{sid2} - {file_date_exact}.xlsx"
+            os.rename(file_path, new_name) 
+            name_path = os.path.join(os.getcwd(), new_name)
+            shutil.copy(name_path, dir)
+        else:
+            shutil.copy(name, dir)            
+        
         
 # present a warning if multiple methods in csv file        
 if len(methods) > 1:
