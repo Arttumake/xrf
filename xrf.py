@@ -4,7 +4,6 @@ import glob
 import shutil
 import datetime
 import ctypes
-import time
 
 import openpyxl as xl
 from openpyxl.styles.fonts import Font
@@ -24,20 +23,30 @@ It can read multiple CSV-files, but currently it outputs a separate Excel-report
 for each file.
 """
 
+uniquant_template = "uniquant.xlsx"
+puriste_template = "puriste.xlsx"
+sulate_template = "sulate.xlsx"
 
-# group up all the csv files in this directory to a list
-csv_files = glob.glob(os.path.join(os.getcwd(), "*.csv"))
-excel_files = glob.glob(os.path.join(os.getcwd(), "*.xlsx"))
+# name of the määritysrajat-excel (only needed for puriste/sulate)
+määritys_rajat_xl = "määritysrajat.xlsx"
 
-
-if len(excel_files) > 1:
-    error_msg = "In order To run this script, the working directory should only have the template excel in it"
-    ctypes.windll.user32.MessageBoxW(0, error_msg, "Error", 0)
-    exit()
-    
 csv_dir = "CSV" # CVS directory name
 excel_dir = "Raportit" # Excel report directory name
 
+# csv-file method and the excel template associated with it
+method_files = {
+    "X_UQ_3600W Oxides" : uniquant_template,
+    "5. PhosphateConcentrateMajors_FB 0.2" : sulate_template,
+    "1. PhosphateRocks_PP 1.0" : puriste_template
+}
+
+# group up all the csv files in this directory to a list
+csv_files = glob.glob(os.path.join(os.getcwd(), "*.csv"))
+
+if not csv_files:
+    ctypes.windll.user32.MessageBoxW(0, "Place CSV-file in the same folder as the xrf.py script", "Error", 0)
+
+methods = {} # keep track of the methods of each row in csv
 excels = []
 csvs = [] 
 date_format = "%Y-%b-%d %X" # how CSV-file represents a date
@@ -71,7 +80,7 @@ for num, file in enumerate(csv_files):
         row_order = [item for item in sorted_dates_rows.values()]
         csv_file.seek(0) # reset iterator to beginning
         
-        methods = {} # keep track of the methods of each row in csv
+        
         compound_order = {} # dictionary to hold compound as key and its column number as value
         # loop through samples (sorted by date) and csv iterable
         for index, (row_num, row) in enumerate(zip(row_order, file_reader)):
@@ -80,14 +89,33 @@ for num, file in enumerate(csv_files):
                 current_row =  substance_row + row_num + 2  # +2 for the extra 2 rows under compounds
                 if col == 0:
                     if index == 0:  # check what excel template to use and load the excel  
-                        wb = xl.load_workbook(excel_files[0])
+                        template = method_files[value]
+                        wb = xl.load_workbook(template)
                         ws = wb.active
                         # read excel-template and get all the compounds in it to a dict
                         for rows in ws.iter_rows(min_row=substance_row, max_row=substance_row, min_col=2):
                             for column, cell in enumerate(rows):
-                                compound_order[cell.value] = column + 1      
-                                                           
+                                compound_order[cell.value] = column + 1 
+                                     
+                        # check if template excel is puriste/sulate and assign limits to compounds
+                        if template != uniquant_template:
+                            wb_limits = xl.load_workbook(määritys_rajat_xl)
+                            ws_limits = wb_limits.active
+                            if template == sulate_template:
+                                limits_sulate = {}
+                                for rows in ws_limits.iter_rows(min_row=4, min_col=2, max_col=4):
+                                    if not rows[0].value:
+                                        break
+                                    limits_sulate[rows[0].value] = (rows[1].value, rows[2].value)
+                            elif template == puriste_template:
+                                limits_puriste = {}
+                                for rows in ws_limits.iter_rows(min_row=4, min_col=6, max_col=8):
+                                    if not rows[0].value:
+                                        break
+                                    limits_puriste[rows[0].value] = (rows[1].value, rows[2].value)    
+                                                                                             
                         compound_order.pop(None, None) # remove trailing none-key from dict if it exists
+    
                     ws.cell(row=5, column=2).value = value # place method name from csv to excel cell
                     methods[csv_file] = value
             
@@ -137,7 +165,26 @@ for num, file in enumerate(csv_files):
                 # get SID2 from first row, column 3
                 elif col == 2 and index == 0:
                     sid2 = value # to be used in naming the report
-                
+                    
+    # check limits for sulate values and overwrite if over/under
+    if template == sulate_template:
+        for key, value in limits_sulate.items():
+            for col in ws.iter_cols(min_row=substance_row+3, min_col=compound_order[key]+1, max_col=compound_order[key]+1):
+                for cell in col:
+                    if cell.value and cell.value < limits_sulate[key][0]:
+                        cell.value = f"< {limits_sulate[key][0]}"
+                    elif cell.value and cell.value > limits_sulate[key][1]:
+                        cell.value = f"*{limits_sulate[key][1]}"
+                        
+    # check limits for puriste values and overwrite if over/under
+    elif template == puriste_template:
+        for key, value in limits_puriste.items():
+            for col in ws.iter_cols(min_row=substance_row+3, min_col=compound_order[key]+1, max_col=compound_order[key]+1):
+                for cell in col:
+                    if cell.value and cell.value < limits_puriste[key][0]:
+                        cell.value = f"< {limits_puriste[key][0]}"
+                    elif cell.value and cell.value > limits_puriste[key][1]:
+                        cell.value = f"> {limits_puriste[key][1]}"                    
 
     # check for None-values and insert value to them                
     for row in ws.iter_rows(min_row=substance_row+1+2, min_col=1, max_col=len(compound_order)):
