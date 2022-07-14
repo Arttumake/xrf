@@ -15,7 +15,7 @@ warnings.filterwarnings("ignore", category=UserWarning, module='openpyxl')
 """
 Done by: Arttu Mäkelä 
 For: CRS Laboratories
-Summer 2022
+Started: June 2022
 
 This script reads csv file in folder and outputs an Excel report based on
 a template file. It renames the input CSV-file, copies the Excel report to
@@ -43,7 +43,8 @@ method_files = {
 }
 
 # group up all the csv files in this directory to a list
-csv_files = glob.glob(os.path.join(os.getcwd(), "*.csv"))
+parent_path = os.path.abspath("..")
+csv_files = glob.glob(os.path.join(parent_path, "*.csv"))
 
 if not csv_files:
     ctypes.windll.user32.MessageBoxW(0, "Place CSV-file in the same folder as the xrf.py script", "Error", 0)
@@ -219,17 +220,16 @@ for num, file in enumerate(csv_files):
     excel_name = f"{sid2} - {file_date}.xlsx"
     csv_name = f"{sid2} - {file_date}.csv"
     
-    os.rename(file, csv_name)    
+    csv_path = os.path.join(parent_path, csv_name)
+    os.rename(file, csv_path)    
     wb.save(excel_name)  
     wb.close()     
 
-    #excel_path = os.path.join(os.getcwd(), excel_name)
-    #csv_path = os.path.join(os.getcwd(), csv_name)
-    
-    csvs.append(csv_name)
-    excels.append(excel_name)
+    excel_path = os.path.join(os.getcwd(), excel_name)
+    csvs.append(csv_path)
+    excels.append(excel_path)
 
-def move_files(names: list, dst: str) -> None:
+def move_files(names: list, dst: str, cwd=os.getcwd(), file_type=".csv"):
     """ Moves a list of files to the destination folder, script should be
         in the same folder as the files being moved.
         Renames copied file if file already exist in destination folder by
@@ -238,48 +238,25 @@ def move_files(names: list, dst: str) -> None:
         args:
             - name: name of the file with file extension
             - dst: destination folder (not path, string only)
+            - cwd: location of the target file in relation to this script
     """
     for name in names:
-        dir = os.path.join(os.getcwd(), dst)
-        tests = os.path.join(dir, name)
+        dir = os.path.join(os.path.abspath(".."), dst)
+        tail = os.path.split(name)
+        file_path = os.path.join(dir, tail[1])
         if not os.path.exists(dir):
             os.mkdir(dir)
-        if os.path.exists(tests):
-            file_path = os.path.join(os.getcwd(), name)
-            new_name = f"{sid2} - {file_date_exact}.csv"
-            os.rename(file_path, new_name) 
-            name_path = os.path.join(os.getcwd(), new_name)
-            shutil.move(name_path, dir)
+        if os.path.exists(file_path):
+            file_path = os.path.join(cwd, name)
+            new_name = f"{sid2} - {file_date_exact}{file_type}"
+            os.rename(file_path, os.path.join(cwd, new_name)) 
+            shutil.move(os.path.join(cwd, new_name), dir)
         else:
             shutil.move(name, dir) 
-    
-def copy_files(names: list, dst: str) -> None:
-    """ Copies a list of files to the destination folder, script should be
-        in the same folder as the files being moved.
-        Renames copied file if file already exist in destination folder by
-        adding more accurate timestamp
-        
-        args:
-            - name: name of the file with file extension
-            - dst: destination folder (not path, string only)
-    """    
-    for name in names:
-        dir = os.path.join(os.getcwd(), dst)
-        if not os.path.exists(dir):
-            os.mkdir(dir)
-        if os.path.exists(os.path.join(dir, name)):
-            file_path = os.path.join(os.getcwd(), name)
-            new_name = f"{sid2} - {file_date_exact}.xlsx"
-            os.rename(file_path, new_name) 
-            name_path = os.path.join(os.getcwd(), new_name)
-            shutil.copy(name_path, dir)
-        else:
-            shutil.copy(name, dir)            
-        
-        
+              
 # present a warning if multiple methods in csv file        
 if len(methods) > 1:
     ctypes.windll.user32.MessageBoxW(0, "More than 1 method present in CSV-file", "Warning", 0)  
       
-copy_files(excels, excel_dir)
-move_files(csvs, csv_dir)
+move_files(excels, excel_dir, file_type=".xlsx")
+move_files(csvs, csv_dir, cwd=parent_path)
