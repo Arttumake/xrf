@@ -100,7 +100,7 @@ for num, file in enumerate(csv_files):
                         for rows in ws.iter_rows(min_row=substance_row, max_row=substance_row, min_col=2):
                             for column, cell in enumerate(rows):
                                 compound_order[cell.value] = column + 1 
-                                     
+                                                      
                         # check if template excel is puriste/sulate and assign limits to compounds
                         if template != uniquant_template:
                             wb_limits = xl.load_workbook(määritys_rajat_xl)
@@ -140,25 +140,41 @@ for num, file in enumerate(csv_files):
                         extras += 1
                         this_column = len(compound_order) + extras
                         compound_cell = ws.cell(row = substance_row, column = this_column)
-                        compound_cell.value = row[col-1]
-                        compound_cell.font = Font(bold=True)
-                        compound_cell.alignment = Alignment(horizontal='center')
-                        compound_cell.border = Border(bottom=Side(style='thin'))
-                        try:
-                            ws.cell(row = current_row, 
-                                    column = this_column).value = float(value)
-                        except ValueError:
-                            continue
-                        # styling for the 2 rows below compound
-                        below_compound = ws.cell(row = substance_row + 1, column = this_column)
-                        below_compound.value = "(%)"
-                        below_compound.alignment = Alignment(horizontal='center')
-                        below_compound.font = Font(size=8)
-                        pp_xrf12 = ws.cell(row = substance_row + 2, column = this_column)
-                        pp_xrf12.value = ws.cell(row = substance_row + 2, column = 2).value
-                        pp_xrf12.font = Font(size=8)
-                        pp_xrf12.alignment = Alignment(horizontal='center')
-                                           
+                        compound = row[col-1]
+                        def place_value(this_column):
+                            try:
+                                ws.cell(row = current_row, column = this_column).value = float(value)
+                                compound_cell.font = Font(bold=True)
+                                compound_cell.alignment = Alignment(horizontal='center')
+                                compound_cell.border = Border(bottom=Side(style='thin'))
+                                # styling for the 2 rows below compound
+                                below_compound = ws.cell(row = substance_row + 1, column = this_column)
+                                below_compound.value = "(%)"
+                                below_compound.alignment = Alignment(horizontal='center')
+                                below_compound.font = Font(size=8)
+                                pp_xrf12 = ws.cell(row = substance_row + 2, column = this_column)
+                                pp_xrf12.value = ws.cell(row = substance_row + 2, column = 2).value
+                                pp_xrf12.font = Font(size=8)
+                                pp_xrf12.alignment = Alignment(horizontal='center')
+                            except ValueError:
+                                return
+                        # check if compound already placed on colum
+                        if not compound_cell.value:
+                            compound_cell.value = compound
+                            place_value(this_column)
+                        elif compound_cell.value == compound:
+                            place_value(this_column)
+                        # if compound is a different compound, 
+                        elif compound_cell.value != compound:
+                            is_avail = False
+                            col_idx = 1
+                            while not is_avail:
+                                compound_cell = ws.cell(row = substance_row, column = this_column + col_idx)
+                                if compound == compound_cell.value:
+                                    place_value(this_column+col_idx)
+                                    is_avail = True
+                                col_idx += 1
+
                 # sample name column from csv to excel report
                 elif col == 1:
                     ws.cell(row=current_row, 
