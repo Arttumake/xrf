@@ -164,13 +164,14 @@ for num, file in enumerate(csv_files):
                             place_value(this_column)
                         elif compound_cell.value == compound:
                             place_value(this_column)
-                        # if compound is a different compound, 
+                        # if compound is a different compound, put its value on the next empty or matching column
                         elif compound_cell.value != compound:
                             is_avail = False
                             col_idx = 1
                             while not is_avail:
                                 compound_cell = ws.cell(row = substance_row, column = this_column + col_idx)
-                                if compound == compound_cell.value:
+                                if compound == compound_cell.value or not compound_cell.value:
+                                    compound_cell.value = compound
                                     place_value(this_column+col_idx)
                                     is_avail = True
                                 col_idx += 1
