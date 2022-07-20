@@ -4,12 +4,14 @@ import glob
 import shutil
 import datetime
 import ctypes
+from typing import Type
 import warnings
 
 import openpyxl as xl
 from openpyxl.styles.fonts import Font
 from openpyxl.styles.alignment import Alignment
 from openpyxl.styles.borders import Border, Side
+from openpyxl.worksheet.datavalidation import DataValidation
 
 warnings.filterwarnings("ignore", category=UserWarning, module='openpyxl')
 """
@@ -28,6 +30,9 @@ for each file.
 uniquant_template = "uniquant.xlsx"
 puriste_template = "puriste.xlsx"
 sulate_template = "sulate.xlsx"
+puriste_sulate_template = "puriste_sulate.xlsx"
+
+dropdown = "Taul1!B4:B1048576"
 
 # name of the määritysrajat-excel (only needed for puriste/sulate)
 määritys_rajat_xl = "määritysrajat.xlsx"
@@ -39,6 +44,7 @@ excel_dir = "Raportit" # Excel report directory name
 method_files = {
     "X_UQ_3600W Oxides" : uniquant_template,
     "5. PhosphateConcentrateMajors_FB 0.2" : sulate_template,
+    "5. PhosphateConcentrateMajors_FB 0.2" : sulate_template,
     "1. PhosphateRocks_PP 1.0" : puriste_template
 }
 
@@ -47,7 +53,7 @@ parent_path = os.path.abspath("..")
 csv_files = glob.glob(os.path.join(parent_path, "*.csv"))
 
 if not csv_files:
-    ctypes.windll.user32.MessageBoxW(0, "Place CSV-file in the same folder as the xrf.py script", "Error", 0)
+    ctypes.windll.user32.MessageBoxW(0, "Place CSV-file Export-folder for script to run", "Error", 0)
 
 methods = {} # keep track of the methods of each row in csv
 excels = []
@@ -85,10 +91,10 @@ for num, file in enumerate(csv_files):
         row_order = [item for item in sorted_dates_rows.values()]
         csv_file.seek(0) # reset iterator to beginning
         
-        
         compound_order = {} # dictionary to hold compound as key and its column number as value
         # loop through samples (sorted by date) and csv iterable
         for index, (row_num, row) in enumerate(zip(row_order, file_reader)):
+            
             extras = 1 # count of extra compounds after "sum before norm."-cell
             for col, value in enumerate(row): # loop through each value in csv row
                 current_row =  substance_row + row_num + 2  # +2 for the extra 2 rows under compounds
@@ -122,6 +128,7 @@ for num, file in enumerate(csv_files):
                         compound_order.pop(None, None) # remove trailing none-key from dict if it exists
     
                     ws.cell(row=5, column=2).value = value # place method name from csv to excel cell
+                    ws.cell(row=7, column=2).value = file_date
                     methods[csv_file] = value
             
                 elif col > 3 and col % 2 != 0:
@@ -187,6 +194,7 @@ for num, file in enumerate(csv_files):
                 # get SID2 from first row, column 3
                 elif col == 2 and index == 0:
                     sid2 = value # to be used in naming the report
+                    ws.cell(row=4, column=2).value = value # add sid2 to excel report as batch name
                     
     # check limits for sulate values and overwrite if over/under
     if template == sulate_template:
@@ -203,11 +211,20 @@ for num, file in enumerate(csv_files):
         for key, value in limits_puriste.items():
             for col in ws.iter_cols(min_row=substance_row+3, min_col=compound_order[key]+1, max_col=compound_order[key]+1):
                 for cell in col:
-                    if cell.value and cell.value < limits_puriste[key][0]:
-                        cell.value = f"< {limits_puriste[key][0]}"
-                    elif cell.value and cell.value > limits_puriste[key][1]:
-                        cell.value = f"> {limits_puriste[key][1]}"                    
-
+                    try:
+                        if cell.value and cell.value < limits_puriste[key][0]:
+                            cell.value = f"< {limits_puriste[key][0]}"
+                        elif cell.value and cell.value > limits_puriste[key][1]:
+                            cell.value = f"> {limits_puriste[key][1]}"                    
+                    except TypeError:
+                        cell.value = f"< 0.001"
+    
+    # add dropdown-list back to report
+    elif template == uniquant_template:
+        dv = DataValidation(type="list", formula1="Taul1!B4:B1048576",allow_blank=True)
+        dv.add(ws.cell(row=6, column=2))
+        ws.add_data_validation(dv)
+        
     # check for None-values and insert value to them                
     for row in ws.iter_rows(min_row=substance_row+1+2, min_col=1, max_col=len(compound_order)):
         if row[0].value:    # check that row has a sample name         
@@ -254,9 +271,6 @@ def move_files(names: list, dst: str, cwd=os.getcwd(), file_type=".csv"):
         else:
             shutil.move(name, dir) 
               
-# present a warning if multiple methods in csv file        
-if len(methods) > 1:
-    ctypes.windll.user32.MessageBoxW(0, "More than 1 method present in CSV-file", "Warning", 0)  
       
-move_files(excels, excel_dir, file_type=".xlsx")
-move_files(csvs, csv_dir, cwd=parent_path)
+#move_files(excels, excel_dir, file_type=".xlsx")
+#move_files(csvs, csv_dir, cwd=parent_path)
