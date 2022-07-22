@@ -44,7 +44,7 @@ excel_dir = "Raportit" # Excel report directory name
 method_files = {
     "X_UQ_3600W Oxides" : uniquant_template,
     "5. PhosphateConcentrateMajors_FB 0.2" : sulate_template,
-    "5. PhosphateConcentrateMajors_FB 0.2" : sulate_template,
+    "5. PhosphateConcentrateMajors_FB 1.0" : sulate_template,
     "1. PhosphateRocks_PP 1.0" : puriste_template
 }
 
@@ -55,7 +55,6 @@ csv_files = glob.glob(os.path.join(parent_path, "*.csv"))
 if not csv_files:
     ctypes.windll.user32.MessageBoxW(0, "Place CSV-file Export-folder for script to run", "Error", 0)
 
-methods = {} # keep track of the methods of each row in csv
 excels = []
 csvs = [] 
 date_format = "%Y-%b-%d %X" # how CSV-file represents a date
@@ -65,12 +64,50 @@ for num, file in enumerate(csv_files):
     with open(file) as csv_file:
         file_reader = csv.reader(csv_file, delimiter=',')
         dates_rows = {}
+        names = []
         # get each date in csv and put them in dictionary as datetime object keys
-        # and row numbers being the values
+        # and row numbers being the values.
+        # determine the correct excel template to load
         for row_num, row in enumerate(file_reader):
+            if row_num == 0:
+                template = method_files[row[0]]
             date = datetime.datetime.strptime(row[3], date_format)
             dates_rows[date] = row_num+1
+            names.append(row[1])
             
+        # check if batch name appears twice and if so, swap template to puriste_sulate
+        duplicates = set([name for name in names if names.count(name) == 2])
+        if duplicates:
+            template = puriste_sulate_template
+
+        wb = xl.load_workbook(template)
+        ws = wb.active
+        
+        compound_order = {} # dictionary to hold compound as key and its column number as value
+        # read excel-template and get all the compounds in it to a dict
+        for rows in ws.iter_rows(min_row=substance_row, max_row=substance_row, min_col=2):
+            for column, cell in enumerate(rows):
+                compound_order[cell.value] = column + 1  
+ 
+        # check if template excel is puriste/sulate and assign limits to compounds
+        if template != uniquant_template:
+            wb_limits = xl.load_workbook(määritys_rajat_xl)
+            ws_limits = wb_limits.active
+            if template == sulate_template:
+                limits_sulate = {}
+                for rows in ws_limits.iter_rows(min_row=4, min_col=2, max_col=4):
+                    if not rows[0].value:
+                        break
+                    limits_sulate[rows[0].value] = (rows[1].value, rows[2].value)
+            elif template == puriste_template:
+                limits_puriste = {}
+                for rows in ws_limits.iter_rows(min_row=4, min_col=6, max_col=8):
+                    if not rows[0].value:
+                        break
+                    limits_puriste[rows[0].value] = (rows[1].value, rows[2].value)    
+                                                                                
+        compound_order.pop(None, None) # remove trailing none-key from dict if it exists               
+                  
         # construct the date-portion of the report file's name
         current = datetime.datetime.now()
         file_date = f"{current.day}.{current.month}.{current.year}"
@@ -91,7 +128,7 @@ for num, file in enumerate(csv_files):
         row_order = [item for item in sorted_dates_rows.values()]
         csv_file.seek(0) # reset iterator to beginning
         
-        compound_order = {} # dictionary to hold compound as key and its column number as value
+        
         # loop through samples (sorted by date) and csv iterable
         for index, (row_num, row) in enumerate(zip(row_order, file_reader)):
             
@@ -99,49 +136,31 @@ for num, file in enumerate(csv_files):
             for col, value in enumerate(row): # loop through each value in csv row
                 current_row =  substance_row + row_num + 2  # +2 for the extra 2 rows under compounds
                 if col == 0:
-                    if index == 0:  # check what excel template to use and load the excel  
-                        template = method_files[value]
-                        wb = xl.load_workbook(template)
-                        ws = wb.active
-                        # read excel-template and get all the compounds in it to a dict
-                        for rows in ws.iter_rows(min_row=substance_row, max_row=substance_row, min_col=2):
-                            for column, cell in enumerate(rows):
-                                compound_order[cell.value] = column + 1 
-                                                      
-                        # check if template excel is puriste/sulate and assign limits to compounds
-                        if template != uniquant_template:
-                            wb_limits = xl.load_workbook(määritys_rajat_xl)
-                            ws_limits = wb_limits.active
-                            if template == sulate_template:
-                                limits_sulate = {}
-                                for rows in ws_limits.iter_rows(min_row=4, min_col=2, max_col=4):
-                                    if not rows[0].value:
-                                        break
-                                    limits_sulate[rows[0].value] = (rows[1].value, rows[2].value)
-                            elif template == puriste_template:
-                                limits_puriste = {}
-                                for rows in ws_limits.iter_rows(min_row=4, min_col=6, max_col=8):
-                                    if not rows[0].value:
-                                        break
-                                    limits_puriste[rows[0].value] = (rows[1].value, rows[2].value)    
-                                                                                             
-                        compound_order.pop(None, None) # remove trailing none-key from dict if it exists
-    
                     ws.cell(row=5, column=2).value = value # place method name from csv to excel cell
-                    ws.cell(row=7, column=2).value = file_date
-                    methods[csv_file] = value
-            
+                    ws.cell(row=7, column=2).value = file_date # place date to Report Date cell in excel
+                # check the cells containing values in csv and place them in report
                 elif col > 3 and col % 2 != 0:
                     try:
                         # set column number based on compound's order in excel template
                         this_column = compound_order[row[col-1]] + 1
-                        ws.cell(row=current_row, 
-                                column=this_column).value = float(value)
-                        # calculate iron value for each row based on Fe2O3 value
-                        if row[col-1] == "Fe2O3":
-                            fe_column = compound_order["Fe*"] + 1
-                            ws.cell(row = current_row, 
-                                    column = fe_column).value = round(0.69945 * float(value),3)
+                        if template != puriste_sulate_template:
+                            # insert value from csv to correct row/column in excel report
+                            ws.cell(row=current_row, 
+                                    column=this_column).value = float(value)
+                            # calculate iron value based on Fe2O3 value and put result in Fe* cell
+                            if row[col-1] == "Fe2O3":
+                                fe_column = compound_order["Fe*"] + 1
+                                ws.cell(row = current_row, 
+                                        column = fe_column).value = round(0.69945 * float(value),3)
+                        elif template == puriste_sulate_template:
+                            # determine which value method's value to insert to report
+                            sub_method = ws.cell(row=13, column=this_column).value.strip('\xa0')
+                            if sub_method == "LBF-XRF12" and row[0] == "5. PhosphateConcentrateMajors_FB 1.0":
+                                ws.cell(row=current_row, 
+                                        column=this_column).value = float(value)                                
+                            elif sub_method == "PP-XRF12" and row[0] == "1. PhosphateRocks_PP 1.0":
+                                ws.cell(row=current_row, 
+                                        column=this_column).value = float(value)                                
                     # catch all compounds not defined in the dictionary and place
                     # their values after "Sum Before Norm." cell
                     except KeyError:
@@ -220,8 +239,8 @@ for num, file in enumerate(csv_files):
                         cell.value = f"< 0.001"
     
     # add dropdown-list back to report
-    elif template == uniquant_template:
-        dv = DataValidation(type="list", formula1="Taul1!B4:B1048576",allow_blank=True)
+    elif template == uniquant_template or template == puriste_sulate_template:
+        dv = DataValidation(type="list", formula1=dropdown,allow_blank=True)
         dv.add(ws.cell(row=6, column=2))
         ws.add_data_validation(dv)
         
