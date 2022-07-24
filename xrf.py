@@ -4,7 +4,6 @@ import glob
 import shutil
 import datetime
 import ctypes
-from typing import Type
 import warnings
 
 import openpyxl as xl
@@ -128,11 +127,12 @@ for num, file in enumerate(csv_files):
         row_order = [item for item in sorted_dates_rows.values()]
         csv_file.seek(0) # reset iterator to beginning
         
+        unique_samples = {} # keep track of sample names and their row for puriste_sulate-template
         
         # loop through samples (sorted by date) and csv iterable
         for index, (row_num, row) in enumerate(zip(row_order, file_reader)):
-            
             extras = 1 # count of extra compounds after "sum before norm."-cell
+            
             for col, value in enumerate(row): # loop through each value in csv row
                 current_row =  substance_row + row_num + 2  # +2 for the extra 2 rows under compounds
                 if col == 0:
@@ -153,14 +153,21 @@ for num, file in enumerate(csv_files):
                                 ws.cell(row = current_row, 
                                         column = fe_column).value = round(0.69945 * float(value),3)
                         elif template == puriste_sulate_template:
-                            # determine which value method's value to insert to report
+                            sample_name = row[1] # refers to sample name in csv
                             sub_method = ws.cell(row=13, column=this_column).value.strip('\xa0')
-                            if sub_method == "LBF-XRF12" and row[0] == "5. PhosphateConcentrateMajors_FB 1.0":
-                                ws.cell(row=current_row, 
-                                        column=this_column).value = float(value)                                
-                            elif sub_method == "PP-XRF12" and row[0] == "1. PhosphateRocks_PP 1.0":
-                                ws.cell(row=current_row, 
-                                        column=this_column).value = float(value)                                
+                            if sample_name not in unique_samples.keys():
+                                unique_samples[sample_name] = current_row
+                            # place value to report given the condition and if its the 2nd time the
+                            # sample name appears, place its value in that sample name's row instead    
+                            if (sub_method == "LBF-XRF12" and "PhosphateConcentrateMajors" in row[0]
+                                or sub_method == "PP-XRF12" and "PhosphateRocks" in row[0]):
+                                if sample_name not in unique_samples.keys():
+                                    ws.cell(row=current_row, 
+                                            column=this_column).value = float(value)
+                                else:
+                                    ws.cell(row=unique_samples[sample_name], 
+                                            column=this_column).value = float(value)
+                    
                     # catch all compounds not defined in the dictionary and place
                     # their values after "Sum Before Norm." cell
                     except KeyError:
@@ -168,6 +175,7 @@ for num, file in enumerate(csv_files):
                         this_column = len(compound_order) + extras
                         compound_cell = ws.cell(row = substance_row, column = this_column)
                         compound = row[col-1]
+                        
                         def place_value(this_column):
                             try:
                                 ws.cell(row = current_row, column = this_column).value = float(value)
@@ -185,6 +193,7 @@ for num, file in enumerate(csv_files):
                                 pp_xrf12.alignment = Alignment(horizontal='center')
                             except ValueError:
                                 return
+                        
                         # check if compound already placed on colum
                         if not compound_cell.value:
                             compound_cell.value = compound
@@ -244,14 +253,21 @@ for num, file in enumerate(csv_files):
         dv.add(ws.cell(row=6, column=2))
         ws.add_data_validation(dv)
         
-    # check for None-values and insert value to them                
-    for row in ws.iter_rows(min_row=substance_row+1+2, min_col=1, max_col=len(compound_order)):
-        if row[0].value:    # check that row has a sample name         
-            for cell in row:
+    # check for None-values and insert value to them
+    if template != puriste_sulate_template:
+        for row in ws.iter_rows(min_row=substance_row+3, min_col=1, max_col=len(compound_order)):
+            if row[0].value:    # check that row has a sample name         
+                for cell in row:
+                    if not cell.value:
+                        cell.value = "< 0.001"
+                    cell.alignment = Alignment(horizontal='right')
+    # delete duplicate rows with no values from excel report if puriste_sulate template
+    else:
+        for col in ws.iter_cols(min_row=substance_row+3, max_row=substance_row+3+len(row_order), min_col=2, max_col=2):
+            for cell in col:
                 if not cell.value:
-                    cell.value = "< 0.001"
-                cell.alignment = Alignment(horizontal='right')
-                              
+                    ws.delete_rows(cell.row)
+
     # rename csv file and save a new excel file
     excel_name = f"{sid2} - {file_date}.xlsx"
     csv_name = f"{sid2} - {file_date}.csv"
@@ -289,7 +305,7 @@ def move_files(names: list, dst: str, cwd=os.getcwd(), file_type=".csv"):
             shutil.move(os.path.join(cwd, new_name), dir)
         else:
             shutil.move(name, dir) 
-              
-      
-#move_files(excels, excel_dir, file_type=".xlsx")
-#move_files(csvs, csv_dir, cwd=parent_path)
+
+
+move_files(excels, excel_dir, file_type=".xlsx")
+move_files(csvs, csv_dir, cwd=parent_path)
