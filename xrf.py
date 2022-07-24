@@ -19,11 +19,8 @@ For: CRS Laboratories
 Started: June 2022
 
 This script reads csv file in folder and outputs an Excel report based on
-a template file. It renames the input CSV-file, copies the Excel report to
+the excel template file. It renames the input CSV-file, copies the Excel report to
 a subdirectory and moves the CSV-file to another. 
-
-It can read multiple CSV-files, but currently it outputs a separate Excel-report
-for each file.
 """
 
 uniquant_template = "uniquant.xlsx"
@@ -31,6 +28,7 @@ puriste_template = "puriste.xlsx"
 sulate_template = "sulate.xlsx"
 puriste_sulate_template = "puriste_sulate.xlsx"
 
+# variable defining the location of dropdown values
 dropdown = "Taul1!B4:B1048576"
 
 # name of the määritysrajat-excel (only needed for puriste/sulate)
@@ -92,13 +90,13 @@ for num, file in enumerate(csv_files):
         if template != uniquant_template:
             wb_limits = xl.load_workbook(määritys_rajat_xl)
             ws_limits = wb_limits.active
-            if template == sulate_template:
+            if template == sulate_template or template == puriste_sulate_template:
                 limits_sulate = {}
                 for rows in ws_limits.iter_rows(min_row=4, min_col=2, max_col=4):
                     if not rows[0].value:
                         break
                     limits_sulate[rows[0].value] = (rows[1].value, rows[2].value)
-            elif template == puriste_template:
+            if template == puriste_template or template == puriste_sulate_template:
                 limits_puriste = {}
                 for rows in ws_limits.iter_rows(min_row=4, min_col=6, max_col=8):
                     if not rows[0].value:
@@ -229,11 +227,14 @@ for num, file in enumerate(csv_files):
         for key, value in limits_sulate.items():
             for col in ws.iter_cols(min_row=substance_row+3, min_col=compound_order[key]+1, max_col=compound_order[key]+1):
                 for cell in col:
-                    if cell.value and cell.value < limits_sulate[key][0]:
-                        cell.value = f"< {limits_sulate[key][0]}"
-                    elif cell.value and cell.value > limits_sulate[key][1]:
-                        cell.value = f"*{limits_sulate[key][1]}"
-                        
+                    try:
+                        if cell.value and cell.value < limits_sulate[key][0]:
+                            cell.value = f"< {limits_sulate[key][0]}"
+                        elif cell.value and cell.value > limits_sulate[key][1]:
+                            cell.value = f"*{limits_sulate[key][1]}"
+                    except TypeError:
+                        continue
+                                                
     # check limits for puriste values and overwrite if over/under
     elif template == puriste_template:
         for key, value in limits_puriste.items():
@@ -245,10 +246,10 @@ for num, file in enumerate(csv_files):
                         elif cell.value and cell.value > limits_puriste[key][1]:
                             cell.value = f"> {limits_puriste[key][1]}"                    
                     except TypeError:
-                        cell.value = f"< 0.001"
-    
+                        continue
+                        
     # add dropdown-list back to report
-    elif template == uniquant_template or template == puriste_sulate_template:
+    if template == uniquant_template or template == puriste_sulate_template:
         dv = DataValidation(type="list", formula1=dropdown,allow_blank=True)
         dv.add(ws.cell(row=6, column=2))
         ws.add_data_validation(dv)
@@ -267,6 +268,42 @@ for num, file in enumerate(csv_files):
             for cell in col:
                 if not cell.value:
                     ws.delete_rows(cell.row)
+
+    # check limits for puriste_sulate template
+    if template == puriste_sulate_template:
+        starting_col = 2
+        for col in ws.iter_cols(min_row=substance_row+3, 
+                                min_col=2, max_col=len(compound_order)+2):
+            filter_method = ws.cell(row=substance_row+2, column=starting_col).value.strip('\xa0')
+            compound = ws.cell(row=substance_row, column=starting_col).value
+            
+            for cell in col:
+                if filter_method == "PP-XRF12":
+                    try:
+                        if cell.value and cell.value < limits_puriste[compound][0]:
+                            cell.value = cell.value = f"< {limits_puriste[compound][0]}"
+                    except TypeError:
+                        continue
+                    try:
+                        if cell.value and cell.value > limits_puriste[compound][1]:
+                            cell.value = f"> {limits_puriste[compound][1]}"
+                    except TypeError:
+                        continue
+                elif filter_method == "LBF-XRF12":
+                    try:
+                        if cell.value and cell.value < limits_sulate[compound][0]:
+                            cell.value = cell.value = f"< {limits_sulate[compound][0]}"
+                    except TypeError:
+                        continue
+                    try:
+                        if cell.value and cell.value > limits_sulate[compound][1]:
+                            cell.value = f"*{limits_sulate[compound][1]}"
+                    except TypeError:
+                        continue                            
+                cell.alignment = Alignment(horizontal='right')
+
+            starting_col += 1
+                
 
     # rename csv file and save a new excel file
     excel_name = f"{sid2} - {file_date}.xlsx"
@@ -288,9 +325,12 @@ def move_files(names: list, dst: str, cwd=os.getcwd(), file_type=".csv"):
         adding more accurate timestamp
         
         args:
-            - name: name of the file with file extension
+            - names: list of file names in path format
             - dst: destination folder (not path, string only)
-            - cwd: location of the target file in relation to this script
+            - cwd: location of the file that is to be moved (in relation to this script)
+            - file_type: what type of files are moved, in case of duplicates 
+            and they need renaming
+            
     """
     for name in names:
         dir = os.path.join(os.path.abspath(".."), dst)
@@ -307,5 +347,5 @@ def move_files(names: list, dst: str, cwd=os.getcwd(), file_type=".csv"):
             shutil.move(name, dir) 
 
 
-move_files(excels, excel_dir, file_type=".xlsx")
-move_files(csvs, csv_dir, cwd=parent_path)
+#move_files(excels, excel_dir, file_type=".xlsx")
+#move_files(csvs, csv_dir, cwd=parent_path)
