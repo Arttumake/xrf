@@ -23,6 +23,7 @@ the excel template file. It renames the input CSV-file, copies the Excel report 
 a subdirectory and moves the CSV-file to another. 
 """
 
+# templates used in this script
 uniquant_template = "uniquant.xlsx"
 puriste_template = "puriste.xlsx"
 sulate_template = "sulate.xlsx"
@@ -37,13 +38,6 @@ määritys_rajat_xl = "määritysrajat.xlsx"
 csv_dir = "CSV" # CVS directory name
 excel_dir = "Raportit" # Excel report directory name
 
-# csv-file method and the excel template associated with it
-method_files = {
-    "X_UQ_3600W Oxides" : uniquant_template,
-    "5. PhosphateConcentrateMajors_FB 0.2" : sulate_template,
-    "5. PhosphateConcentrateMajors_FB 1.0" : sulate_template,
-    "1. PhosphateRocks_PP 1.0" : puriste_template
-}
 
 # group up all the csv files in this directory to a list
 parent_path = os.path.abspath("..")
@@ -67,16 +61,23 @@ for num, file in enumerate(csv_files):
         # determine the correct excel template to load
         for row_num, row in enumerate(file_reader):
             if row_num == 0:
-                template = method_files[row[0]]
+                if "Oxides" in row[0]:
+                    template = uniquant_template
+                elif "PhosphateConcentrateMajors" in row[0]:
+                    template = sulate_template
+                elif "PhosphateRocks_PP" in row[0]:
+                    template = puriste_template
+                
             date = datetime.datetime.strptime(row[3], date_format)
             dates_rows[date] = row_num+1
             names.append(row[1])
             
         # check if batch name appears twice and if so, swap template to puriste_sulate
         duplicates = set([name for name in names if names.count(name) == 2])
-        if duplicates:
+        if len(duplicates) == len(dates_rows) / 2:
             template = puriste_sulate_template
 
+        # load the template and set active worksheet
         wb = xl.load_workbook(template)
         ws = wb.active
         
@@ -274,34 +275,36 @@ for num, file in enumerate(csv_files):
         starting_col = 2
         for col in ws.iter_cols(min_row=substance_row+3, 
                                 min_col=2, max_col=len(compound_order)+2):
-            filter_method = ws.cell(row=substance_row+2, column=starting_col).value.strip('\xa0')
-            compound = ws.cell(row=substance_row, column=starting_col).value
+            unstripped_method = ws.cell(row=substance_row+2, column=starting_col).value
             
-            for cell in col:
-                if filter_method == "PP-XRF12":
-                    try:
-                        if cell.value and cell.value < limits_puriste[compound][0]:
-                            cell.value = cell.value = f"< {limits_puriste[compound][0]}"
-                    except TypeError:
-                        continue
-                    try:
-                        if cell.value and cell.value > limits_puriste[compound][1]:
-                            cell.value = f"> {limits_puriste[compound][1]}"
-                    except TypeError:
-                        continue
-                elif filter_method == "LBF-XRF12":
-                    try:
-                        if cell.value and cell.value < limits_sulate[compound][0]:
-                            cell.value = cell.value = f"< {limits_sulate[compound][0]}"
-                    except TypeError:
-                        continue
-                    try:
-                        if cell.value and cell.value > limits_sulate[compound][1]:
-                            cell.value = f"*{limits_sulate[compound][1]}"
-                    except TypeError:
-                        continue                            
-                cell.alignment = Alignment(horizontal='right')
-
+            if unstripped_method:
+                filter_method = unstripped_method.strip('\xa0')
+                compound = ws.cell(row=substance_row, column=starting_col).value
+                
+                for cell in col:
+                    cell.alignment = Alignment(horizontal='right')
+                    if filter_method == "PP-XRF12":
+                        try:
+                            if cell.value and cell.value < limits_puriste[compound][0]:
+                                cell.value = cell.value = f"< {limits_puriste[compound][0]}"
+                        except TypeError:
+                            continue
+                        try:
+                            if cell.value and cell.value > limits_puriste[compound][1]:
+                                cell.value = f"> {limits_puriste[compound][1]}"
+                        except TypeError:
+                            continue
+                    elif filter_method == "LBF-XRF12":
+                        try:
+                            if cell.value and cell.value < limits_sulate[compound][0]:
+                                cell.value = cell.value = f"< {limits_sulate[compound][0]}"
+                        except TypeError:
+                            continue
+                        try:
+                            if cell.value and cell.value > limits_sulate[compound][1]:
+                                cell.value = f"*{limits_sulate[compound][1]}"
+                        except TypeError:
+                            continue                            
             starting_col += 1
                 
 
@@ -347,5 +350,5 @@ def move_files(names: list, dst: str, cwd=os.getcwd(), file_type=".csv"):
             shutil.move(name, dir) 
 
 
-#move_files(excels, excel_dir, file_type=".xlsx")
-#move_files(csvs, csv_dir, cwd=parent_path)
+move_files(excels, excel_dir, file_type=".xlsx")
+move_files(csvs, csv_dir, cwd=parent_path)
