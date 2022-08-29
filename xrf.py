@@ -132,7 +132,6 @@ for num, file in enumerate(csv_files):
         for index, (row_num, row) in enumerate(zip(row_order, file_reader)):
 
             for col, value in enumerate(row): # loop through each value in csv row
-                extras = 1 # count of extra compounds after "sum before norm."-cell
                 current_row =  substance_row + row_num + 2  # +2 for the extra 2 rows under compounds
                 if col == 0:
                     ws.cell(row=5, column=2).value = value # place method name from csv to excel cell
@@ -170,8 +169,7 @@ for num, file in enumerate(csv_files):
                     # catch all compounds not defined in the dictionary and place
                     # their values after "Sum Before Norm." cell
                     except KeyError:
-                        extras += 1
-                        this_column = len(compound_order) + extras
+                        this_column = len(compound_order) + 2
                         compound_cell = ws.cell(row = substance_row, column = this_column)
                         compound = row[col-1]
                         
@@ -352,4 +350,4 @@ def move_files(names: list, dst: str, cwd=os.getcwd(), file_type=".csv"):
 
 
 move_files(excels, excel_dir, file_type=".xlsx")
-move_files(csvs, csv_dir, cwd=parent_path)
+#move_files(csvs, csv_dir, cwd=parent_path)
