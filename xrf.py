@@ -130,9 +130,9 @@ for num, file in enumerate(csv_files):
         
         # loop through samples (sorted by date) and csv iterable
         for index, (row_num, row) in enumerate(zip(row_order, file_reader)):
-            extras = 1 # count of extra compounds after "sum before norm."-cell
-            
+
             for col, value in enumerate(row): # loop through each value in csv row
+                extras = 1 # count of extra compounds after "sum before norm."-cell
                 current_row =  substance_row + row_num + 2  # +2 for the extra 2 rows under compounds
                 if col == 0:
                     ws.cell(row=5, column=2).value = value # place method name from csv to excel cell
@@ -205,6 +205,7 @@ for num, file in enumerate(csv_files):
                             col_idx = 1
                             while not is_avail:
                                 compound_cell = ws.cell(row = substance_row, column = this_column + col_idx)
+                                debug = compound_cell.value
                                 if compound == compound_cell.value or not compound_cell.value:
                                     compound_cell.value = compound
                                     place_value(this_column+col_idx)
