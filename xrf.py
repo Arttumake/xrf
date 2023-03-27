@@ -62,7 +62,7 @@ for num, file in enumerate(csv_files):
         # determine the correct excel template to load
         for row_num, row in enumerate(file_reader):
             if row_num == 0:
-                if "Oxides" or "Sulphides" in row[0]:
+                if "Oxides" in row[0] or "Sulphides" in row[0]:
                     template = uniquant_template
                     offset = 6
                     fe_column = 4
