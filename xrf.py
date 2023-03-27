@@ -155,10 +155,7 @@ for num, file in enumerate(csv_files):
                                 if template == uniquant_template:
                                     ws.cell(row = current_row, 
                                             column = fe_column).value = round(0.69945 * float(value),3)
-                                else:
-                                    fe_column = compound_order["Fe*"]
-                                    ws.cell(row = current_row, 
-                                            column = fe_column).value = round(0.69945 * float(value),3)
+                                    
                             # place values to Fe and Mn columns instead of Fe2O3 or MnO if sulphides method used in csv row        
                             if template == uniquant_template and "sulphides" in row[0].lower():
                                 if row[col-1] == "Fe2O3":
@@ -211,7 +208,7 @@ for num, file in enumerate(csv_files):
                                 pp_xrf12 = ws.cell(row = substance_row + 2, column = this_column)
                                 pp_xrf12.alignment = Alignment(horizontal='center')
                                 pp_xrf12.value = ws.cell(row = substance_row + 2, column = 2).value
-                                pp_xrf12.font = Font(name="Arial",size=10)
+                                pp_xrf12.font = Font(name="Arial",size=8)
                                 
                             except ValueError:
                                 return
@@ -250,7 +247,7 @@ for num, file in enumerate(csv_files):
     # check limits for sulate values and overwrite if over/under
     if template == sulate_template:
         for key, value in limits_sulate.items():
-            for col in ws.iter_cols(min_row=substance_row+3, min_col=compound_order[key]+1, max_col=compound_order[key]+1):
+            for col in ws.iter_cols(min_row=substance_row+3, min_col=compound_order[key], max_col=compound_order[key]):
                 for cell in col:
                     try:
                         if cell.value and cell.value < limits_sulate[key][0]:
@@ -263,7 +260,7 @@ for num, file in enumerate(csv_files):
     # check limits for puriste values and overwrite if over/under
     elif template == puriste_template:
         for key, value in limits_puriste.items():
-            for col in ws.iter_cols(min_row=substance_row+3, min_col=compound_order[key]+1, max_col=compound_order[key]+1):
+            for col in ws.iter_cols(min_row=substance_row+3, min_col=compound_order[key], max_col=compound_order[key]):
                 for cell in col:
                     try:
                         if cell.value and cell.value < limits_puriste[key][0]:
@@ -281,15 +278,22 @@ for num, file in enumerate(csv_files):
         
     # check for None-values in excel report and insert value to them
     if template != puriste_sulate_template:
-        exclude = ["Mn", "MnO", "Fe", "Fe2O3"] # don't put a value in cells under these compounds
-        exclude_cols = [compound_order[comp] for comp in exclude]
-        for row in ws.iter_rows(min_row=substance_row+3, min_col=1, max_col=len(compound_order)+offset):
-            if row[0].value:    # check that row has a sample name         
-                for cell in row:
-                    if not cell.value and cell.column not in exclude_cols and cell.column > 6:
-                        cell.value = "< 0.001"
-                    cell.alignment = Alignment(horizontal='right')
-                    
+        if template == uniquant_template:
+            exclude = ["Mn", "MnO", "Fe", "Fe2O3"] # don't put a value in cells under these compounds
+            exclude_cols = [compound_order[comp] for comp in exclude]
+            for row in ws.iter_rows(min_row=substance_row+3, min_col=1, max_col=len(compound_order)+offset):
+                if row[0].value:    # check that row has a sample name         
+                    for cell in row:
+                        if not cell.value and cell.column not in exclude_cols and cell.column > 6:
+                            cell.value = "< 0.001"
+                        cell.alignment = Alignment(horizontal='right')
+        else:
+            for row in ws.iter_rows(min_row=substance_row+3, min_col=1, max_col=len(compound_order)+offset):
+                if row[0].value:    # check that row has a sample name         
+                    for cell in row:
+                        if not cell.value:
+                            cell.value = "< 0.001"
+                        cell.alignment = Alignment(horizontal='right')                    
     # delete duplicate rows with no values from excel report if puriste_sulate template
     else:
         for col in ws.iter_cols(min_row=substance_row+3, max_row=substance_row+3+len(row_order), min_col=2, max_col=2):
