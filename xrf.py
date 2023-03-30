@@ -26,10 +26,9 @@ a subdirectory and moves the CSV-file to another.
 
 offset : int # how many rows in template before csv compounds, assigned once template is determined
 substance_row = 11 # the row where all the compounds are listed in excel templates
-fe_column = 4 # number of the Fe* column in the excel template, assigned once template is determined
 
 # templates used in this script
-uniquant_template = "uniquant_ver4.xlsx"
+uniquant_template = "uniquant.xlsx"
 puriste_template = "puriste.xlsx"
 sulate_template = "sulate.xlsx"
 puriste_sulate_template = "puriste_sulate.xlsx"
@@ -65,7 +64,6 @@ for num, file in enumerate(csv_files):
                 if "Oxides" in row[0] or "Sulphides" in row[0]:
                     template = uniquant_template
                     offset = 6
-                    fe_column = 4
                 elif "PhosphateConcentrateMajors" in row[0]:
                     template = sulate_template
                     offset = 1
@@ -140,7 +138,7 @@ for num, file in enumerate(csv_files):
                 current_row =  substance_row + row_num + 2  # +2 for the extra 2 rows under compounds
                 if col == 0:
                     ws.cell(row=5, column=2).value = value # place method name from csv to excel cell
-                    ws.cell(row=8, column=2).value = file_date # place date to Report Date cell in excel
+                    
                 # check the cells containing values in csv and place them in report
                 elif col > 3 and col % 2 != 0:
                     try:
@@ -150,27 +148,29 @@ for num, file in enumerate(csv_files):
                             # insert value from csv to correct row/column in excel report
                             ws.cell(row=current_row, 
                                     column=this_column).value = float(value)
-                            # calculate iron value based on Fe2O3 value and put result in Fe* cell
-                            if row[col-1] == "Fe2O3":
-                                if template == uniquant_template:
-                                    ws.cell(row = current_row, 
-                                            column = fe_column).value = round(0.69945 * float(value),3)
-                                    
+                              
                             # place values to Fe and Mn columns instead of Fe2O3 or MnO if sulphides method used in csv row        
                             if template == uniquant_template and "sulphides" in row[0].lower():
                                 if row[col-1] == "Fe2O3":
                                     fe = compound_order["Fe"]
                                     ws.cell(row = current_row, 
                                             column = fe).value  = float(value)  
-                                    ws.cell(row=current_row, 
-                                            column=this_column).value = None                               
+                                                                  
                                 elif row[col-1] == "MnO":
                                     mn = compound_order["Mn"]
                                     ws.cell(row = current_row, 
                                             column = mn).value  = float(value)    
-                                    ws.cell(row=current_row, 
-                                            column=this_column).value = None
-                                                                                    
+                                ws.cell(row=current_row, 
+                                        column=this_column).value = None
+                                
+                            if template == uniquant_template and "oxides" in row[0].lower():
+                                if row[col-1] == "Fe2O3":
+                                    fe = compound_order["Fe"]
+                                    ws.cell(row = current_row, 
+                                            column = fe).value = round(0.69945 * float(value),3)
+                                    ws.cell(row = current_row, 
+                                            column = 4).value = 0 # place a 0 to Fe* cell for oxides to show it needs a user input                                    
+                                                                                                                                                        
                         elif template == puriste_sulate_template:
                             sample_name = row[1] # refers to sample name in csv
                             sub_method = ws.cell(row=13, column=this_column).value.strip('\xa0')
@@ -213,7 +213,7 @@ for num, file in enumerate(csv_files):
                             except ValueError:
                                 return
                         
-                        # check if compound already placed on colum
+                        # check if compound already placed on column
                         if not compound_cell.value:
                             compound_cell.value = compound
                             place_value(this_column)
@@ -280,7 +280,7 @@ for num, file in enumerate(csv_files):
     if template != puriste_sulate_template:
         if template == uniquant_template:
             exclude = ["Mn", "MnO", "Fe", "Fe2O3"] # don't put a value in cells under these compounds
-            exclude_cols = [compound_order[comp] for comp in exclude]
+            exclude_cols = [compound_order[comp] for comp in exclude] # exclude list converted to column number list
             for row in ws.iter_rows(min_row=substance_row+3, min_col=1, max_col=len(compound_order)+offset):
                 if row[0].value:    # check that row has a sample name         
                     for cell in row:
@@ -352,7 +352,7 @@ for num, file in enumerate(csv_files):
     csvs.append(csv_path)
     excels.append(excel_path)
 
-def move_files(names: list, dst: str, cwd=os.getcwd(), file_type=".csv"):
+def move_files(names: list, dest: str, cwd=os.getcwd(), file_type=".csv"):
     """ Moves a list of files to the destination folder, script should be
         in the same folder as the files being moved.
         Renames copied file if file already exist in destination folder by
@@ -360,14 +360,14 @@ def move_files(names: list, dst: str, cwd=os.getcwd(), file_type=".csv"):
         
         args:
             - names: list of file names in path format
-            - dst: destination folder (not path, string only)
+            - dest: destination folder (not path, string only)
             - cwd: location of the file that is to be moved (in relation to this script)
             - file_type: what type of files are moved, in case of duplicates 
             and they need renaming
             
     """
     for name in names:
-        dir = os.path.join(os.path.abspath(".."), dst)
+        dir = os.path.join(os.path.abspath(".."), dest)
         tail = os.path.split(name)
         file_path = os.path.join(dir, tail[1])
         if not os.path.exists(dir):
@@ -379,7 +379,6 @@ def move_files(names: list, dst: str, cwd=os.getcwd(), file_type=".csv"):
             shutil.move(os.path.join(cwd, new_name), dir)
         else:
             shutil.move(name, dir) 
-
 
 #move_files(excels, excel_dir, file_type=".xlsx")
 #move_files(csvs, csv_dir, cwd=parent_path)
