@@ -396,5 +396,5 @@ def move_files(names: list, dest: str, cwd=os.getcwd(), file_type=".csv"):
         else:
             shutil.move(name, dir) 
 
-#move_files(excels, excel_dir, file_type=".xlsx")
-#move_files(csvs, csv_dir, cwd=parent_path)
+move_files(excels, excel_dir, file_type=".xlsx")
+move_files(csvs, csv_dir, cwd=parent_path)
