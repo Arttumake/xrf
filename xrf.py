@@ -64,13 +64,10 @@ for num, file in enumerate(csv_files):
             if row_num == 0:
                 if "Oxides" in row[0] or "Sulphides" in row[0]:
                     template = uniquant_template
-                    offset = 6
                 elif "PhosphateConcentrateMajors" in row[0]:
                     template = sulate_template
-                    offset = 2
                 elif "PhosphateRocks_PP" in row[0]:
                     template = puriste_template
-                    offset = 2
 
             date = datetime.datetime.strptime(row[3], date_format)
             dates_rows[date] = row_num + 1
@@ -84,6 +81,16 @@ for num, file in enumerate(csv_files):
         # load the template and set active worksheet
         wb = xl.load_workbook(template)
         ws = wb.active
+
+        offset = 0  # number that determines where compounds start in report template
+        # determine the column where compound listing starts in template
+        for row in ws.iter_rows(
+            min_row=substance_row + 2, max_row=substance_row + 2, min_col=1
+        ):
+            for cell in row:
+                if cell.value and ("PP" in cell.value or "LBF" in cell.value):
+                    break
+                offset += 1
 
         # dictionary to hold compound as key and its column number as value
         compound_order = {}
@@ -140,11 +147,9 @@ for num, file in enumerate(csv_files):
         # keep track of sample names and their row for puriste_sulate-template
         unique_samples = {}
 
-        # booleans to determine how method cell in report should be named
-        oxides_used = False
-        sulphides_used = False
         # list to hold all unique methods used in a uniquant csv
-        uquant_methods = []  
+        uquant_methods = []
+
         # loop through samples (sorted by date) and csv iterable
         for index, (row_num, row) in enumerate(zip(row_order, file_reader)):
             for col, value in enumerate(row):  # loop through each value in csv row
@@ -297,11 +302,11 @@ for num, file in enumerate(csv_files):
                     ws.cell(
                         row=4, column=2
                     ).value = value  # add sid2 to excel report as batch name
-                    
+
     # place all methods in uniquant csv to the correct field in excel report
     if template == uniquant_template:
         ws.cell(row=5, column=2).value = ", ".join(uquant_methods)
-    
+
     # check limits for sulate values and overwrite if over/under
     if template == sulate_template:
         for key, value in limits_sulate.items():
@@ -337,7 +342,7 @@ for num, file in enumerate(csv_files):
                                 cell.value = f"> {limits_puriste[key][1]}"
                         except TypeError:
                             continue
-                            
+
     # check for None-values in excel report and insert value to them
     if template != puriste_sulate_template:
         if template == uniquant_template:
@@ -401,7 +406,7 @@ for num, file in enumerate(csv_files):
                 for cell in col:
                     cell.alignment = Alignment(horizontal="right")
                     if cell.value or cell.value == 0:
-                        if "PP" in filter_method[:2]:
+                        if "PP" in filter_method:
                             try:
                                 if cell.value < limits_puriste[compound][0]:
                                     cell.value = f"< {limits_puriste[compound][0]}"
@@ -412,7 +417,7 @@ for num, file in enumerate(csv_files):
                                     cell.value = f"> {limits_puriste[compound][1]}"
                             except TypeError:
                                 continue
-                        elif "LBF" in filter_method[:3]:
+                        elif "LBF" in filter_method:
                             try:
                                 if cell.value < limits_sulate[compound][0]:
                                     cell.value = f"< {limits_sulate[compound][0]}"
@@ -474,5 +479,5 @@ def move_files(names: list, dest: str, cwd=os.getcwd(), file_type=".csv"):
             shutil.move(name, dir)
 
 
-#move_files(excels, excel_dir, file_type=".xlsx")
-#move_files(csvs, csv_dir, cwd=parent_path)
+move_files(excels, excel_dir, file_type=".xlsx")
+move_files(csvs, csv_dir, cwd=parent_path)
