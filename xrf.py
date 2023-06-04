@@ -33,7 +33,6 @@ puriste_template = "puriste.xlsx"
 sulate_template = "sulate.xlsx"
 puriste_sulate_template = "puriste_sulate.xlsx"
 
-dropdown = "Taul1!B4:B1048576"  # variable defining the location of dropdown values
 määritys_rajat_xl = "määritysrajat.xlsx"  # name of the määritysrajat-excel (only needed for puriste/sulate)
 csv_dir = "CSV"  # CVS directory name
 excel_dir = "Raportit"  # Excel report directory name
@@ -86,15 +85,15 @@ for num, file in enumerate(csv_files):
         wb = xl.load_workbook(template)
         ws = wb.active
 
-        compound_order = (
-            {}
-        )  # dictionary to hold compound as key and its column number as value
+        # dictionary to hold compound as key and its column number as value
+        compound_order = {}
+
         # read excel-template and get all the compounds in it to a dict
         for rows in ws.iter_rows(
-            min_row=substance_row, max_row=substance_row, min_col=offset
+            min_row=substance_row, max_row=substance_row, min_col=offset + 1
         ):
             for col_idx, cell in enumerate(rows):
-                compound_order[cell.value] = col_idx + offset
+                compound_order[cell.value] = col_idx + offset + 1
 
         # check if template excel is puriste/sulate and assign limits to compounds
         if template != uniquant_template:
@@ -113,9 +112,8 @@ for num, file in enumerate(csv_files):
                         break
                     limits_puriste[rows[0].value] = (rows[1].value, rows[2].value)
 
-        compound_order.pop(
-            None, None
-        )  # remove trailing none-key from dict if it exists
+        # remove trailing none-key from dict if it exists
+        compound_order.pop(None, None)
 
         # construct the date-portion of the report file's name
         current = datetime.datetime.now()
@@ -139,9 +137,8 @@ for num, file in enumerate(csv_files):
         row_order = [item for item in sorted_dates_rows.values()]
         csv_file.seek(0)  # reset iterator to beginning
 
-        unique_samples = (
-            {}
-        )  # keep track of sample names and their row for puriste_sulate-template
+        # keep track of sample names and their row for puriste_sulate-template
+        unique_samples = {}
 
         # booleans to determine how method cell in report should be named
         oxides_used = False
@@ -150,9 +147,8 @@ for num, file in enumerate(csv_files):
         # loop through samples (sorted by date) and csv iterable
         for index, (row_num, row) in enumerate(zip(row_order, file_reader)):
             for col, value in enumerate(row):  # loop through each value in csv row
-                current_row = (
-                    substance_row + row_num + 2
-                )  # +2 for the extra 2 rows under compounds
+                # +2 for the extra 2 rows under compounds
+                current_row = substance_row + row_num + 2
                 if col == 0:
                     if "sulphides" in value.lower():
                         sulphides_used = True
@@ -160,16 +156,11 @@ for num, file in enumerate(csv_files):
                     elif "oxides" in value.lower():
                         oxides_used = True
                         oxides_method = value
-                    if (
-                        oxides_used and sulphides_used
-                    ):  # use both methods as the method name in excel report
+                    # use both methods as the method name in excel report
+                    if oxides_used and sulphides_used:
                         ws.cell(
                             row=5, column=2
                         ).value = f"{oxides_method}, {sulphides_method}"
-                    elif template != puriste_sulate_template:
-                        ws.cell(
-                            row=5, column=2
-                        ).value = value  # place method name from csv to excel report
 
                 # check the cells containing values in csv and place them in report
                 elif col > 3 and col % 2 != 0:
@@ -224,9 +215,9 @@ for num, file in enumerate(csv_files):
                             # place value to report given the condition and if its the 2nd time the
                             # sample name appears, place its value in that sample name's row instead
                             if (
-                                sub_method == "LBF-XRF12"
+                                "LBF" in sub_method[:3]
                                 and "PhosphateConcentrateMajors" in row[0]
-                                or sub_method == "PP-XRF12"
+                                or "PP" in sub_method[:2]
                                 and "PhosphateRocks" in row[0]
                             ):
                                 if sample_name not in unique_samples.keys():
@@ -324,13 +315,14 @@ for num, file in enumerate(csv_files):
                 max_col=compound_order[key],
             ):
                 for cell in col:
-                    try:
-                        if cell.value and cell.value < limits_sulate[key][0]:
-                            cell.value = f"< {limits_sulate[key][0]}"
-                        elif cell.value and cell.value > limits_sulate[key][1]:
-                            cell.value = f"*{limits_sulate[key][1]}"
-                    except TypeError:
-                        continue
+                    if cell.value or cell.value == 0:
+                        try:
+                            if cell.value < limits_sulate[key][0]:
+                                cell.value = f"< {limits_sulate[key][0]}"
+                            elif cell.value > limits_sulate[key][1]:
+                                cell.value = f"*{limits_sulate[key][1]}"
+                        except TypeError:
+                            continue
 
     # check limits for puriste values and overwrite if over/under
     elif template == puriste_template:
@@ -341,19 +333,14 @@ for num, file in enumerate(csv_files):
                 max_col=compound_order[key],
             ):
                 for cell in col:
-                    try:
-                        if cell.value and cell.value < limits_puriste[key][0]:
-                            cell.value = f"< {limits_puriste[key][0]}"
-                        elif cell.value and cell.value > limits_puriste[key][1]:
-                            cell.value = f"> {limits_puriste[key][1]}"
-                    except TypeError:
-                        continue
-
-    # add dropdown-list back to report
-    if template == uniquant_template or template == puriste_sulate_template:
-        dv = DataValidation(type="list", formula1=dropdown, allow_blank=True)
-        dv.add(ws.cell(row=6, column=2))
-        ws.add_data_validation(dv)
+                    if cell.value or cell.value == 0:
+                        try:
+                            if cell.value < limits_puriste[key][0]:
+                                cell.value = f"< {limits_puriste[key][0]}"
+                            elif cell.value > limits_puriste[key][1]:
+                                cell.value = f"> {limits_puriste[key][1]}"
+                        except TypeError:
+                            continue
 
     # check for None-values in excel report and insert value to them
     if template != puriste_sulate_template:
@@ -374,16 +361,13 @@ for num, file in enumerate(csv_files):
             ):
                 if row[0].value:  # check that row has a sample name
                     for cell in row:
-                        if (
-                            not cell.value
-                            and cell.column not in exclude_cols
-                        ):
+                        if not cell.value and cell.column not in exclude_cols:
                             cell.value = "< 0.001"
                         cell.alignment = Alignment(horizontal="right")
         else:
             for row in ws.iter_rows(
                 min_row=substance_row + 3,
-                min_col=offset,
+                min_col=offset + 1,
                 max_col=len(compound_order) + offset,
             ):
                 if row[0].value:  # check that row has a sample name
@@ -420,28 +404,29 @@ for num, file in enumerate(csv_files):
 
                 for cell in col:
                     cell.alignment = Alignment(horizontal="right")
-                    if "PP" in filter_method[:1]:
-                        try:
-                            if cell.value and cell.value < limits_puriste[compound][0]:
-                                cell.value = f"< {limits_puriste[compound][0]}"
-                        except TypeError:
-                            continue
-                        try:
-                            if cell.value and cell.value > limits_puriste[compound][1]:
-                                cell.value = f"> {limits_puriste[compound][1]}"
-                        except TypeError:
-                            continue
-                    elif "LBF" in filter_method[:2]:
-                        try:
-                            if cell.value and cell.value < limits_sulate[compound][0]:
-                                cell.value = f"< {limits_sulate[compound][0]}"
-                        except TypeError:
-                            continue
-                        try:
-                            if cell.value and cell.value > limits_sulate[compound][1]:
-                                cell.value = f"*{limits_sulate[compound][1]}"
-                        except TypeError:
-                            continue
+                    if cell.value or cell.value == 0:
+                        if "PP" in filter_method[:2]:
+                            try:
+                                if cell.value < limits_puriste[compound][0]:
+                                    cell.value = f"< {limits_puriste[compound][0]}"
+                            except TypeError:
+                                continue
+                            try:
+                                if cell.value > limits_puriste[compound][1]:
+                                    cell.value = f"> {limits_puriste[compound][1]}"
+                            except TypeError:
+                                continue
+                        elif "LBF" in filter_method[:3]:
+                            try:
+                                if cell.value < limits_sulate[compound][0]:
+                                    cell.value = f"< {limits_sulate[compound][0]}"
+                            except TypeError:
+                                continue
+                            try:
+                                if cell.value > limits_sulate[compound][1]:
+                                    cell.value = f"*{cell.value}"
+                            except TypeError:
+                                continue
             starting_col += 1
 
     forbidden = "/\?:|<>"  # characters that can't be used in file name
@@ -493,5 +478,5 @@ def move_files(names: list, dest: str, cwd=os.getcwd(), file_type=".csv"):
             shutil.move(name, dir)
 
 
-# move_files(excels, excel_dir, file_type=".xlsx")
-# move_files(csvs, csv_dir, cwd=parent_path)
+move_files(excels, excel_dir, file_type=".xlsx")
+move_files(csvs, csv_dir, cwd=parent_path)
