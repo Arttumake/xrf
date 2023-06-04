@@ -143,24 +143,16 @@ for num, file in enumerate(csv_files):
         # booleans to determine how method cell in report should be named
         oxides_used = False
         sulphides_used = False
-
+        # list to hold all unique methods used in a uniquant csv
+        uquant_methods = []  
         # loop through samples (sorted by date) and csv iterable
         for index, (row_num, row) in enumerate(zip(row_order, file_reader)):
             for col, value in enumerate(row):  # loop through each value in csv row
                 # +2 for the extra 2 rows under compounds
                 current_row = substance_row + row_num + 2
-                if col == 0:
-                    if "sulphides" in value.lower():
-                        sulphides_used = True
-                        sulphides_method = value
-                    elif "oxides" in value.lower():
-                        oxides_used = True
-                        oxides_method = value
-                    # use both methods as the method name in excel report
-                    if oxides_used and sulphides_used:
-                        ws.cell(
-                            row=5, column=2
-                        ).value = f"{oxides_method}, {sulphides_method}"
+                # place all unique methods in uniquant csv to list, place them in report later
+                if col == 0 and value not in uquant_methods:
+                    uquant_methods.append(value)
 
                 # check the cells containing values in csv and place them in report
                 elif col > 3 and col % 2 != 0:
@@ -305,7 +297,11 @@ for num, file in enumerate(csv_files):
                     ws.cell(
                         row=4, column=2
                     ).value = value  # add sid2 to excel report as batch name
-
+                    
+    # place all methods in uniquant csv to the correct field in excel report
+    if template == uniquant_template:
+        ws.cell(row=5, column=2).value = ", ".join(uquant_methods)
+    
     # check limits for sulate values and overwrite if over/under
     if template == sulate_template:
         for key, value in limits_sulate.items():
@@ -341,7 +337,7 @@ for num, file in enumerate(csv_files):
                                 cell.value = f"> {limits_puriste[key][1]}"
                         except TypeError:
                             continue
-
+                            
     # check for None-values in excel report and insert value to them
     if template != puriste_sulate_template:
         if template == uniquant_template:
@@ -478,5 +474,5 @@ def move_files(names: list, dest: str, cwd=os.getcwd(), file_type=".csv"):
             shutil.move(name, dir)
 
 
-move_files(excels, excel_dir, file_type=".xlsx")
-move_files(csvs, csv_dir, cwd=parent_path)
+#move_files(excels, excel_dir, file_type=".xlsx")
+#move_files(csvs, csv_dir, cwd=parent_path)
