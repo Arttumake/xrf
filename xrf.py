@@ -88,7 +88,7 @@ for num, file in enumerate(csv_files):
             min_row=substance_row + 2, max_row=substance_row + 2, min_col=1
         ):
             for cell in row:
-                if cell.value and ("PP" in cell.value or "LBF" in cell.value):
+                if cell.value and ("PP-" in cell.value or "LBF-" in cell.value):
                     break
                 offset += 1
 
@@ -321,7 +321,7 @@ for num, file in enumerate(csv_files):
                             if cell.value < limits_sulate[key][0]:
                                 cell.value = f"< {limits_sulate[key][0]}"
                             elif cell.value > limits_sulate[key][1]:
-                                cell.value = f"*{limits_sulate[key][1]}"
+                                cell.value = f"*{cell.value}"
                         except TypeError:
                             continue
 
@@ -406,7 +406,7 @@ for num, file in enumerate(csv_files):
                 for cell in col:
                     cell.alignment = Alignment(horizontal="right")
                     if cell.value or cell.value == 0:
-                        if "PP" in filter_method:
+                        if "PP-" in filter_method:
                             try:
                                 if cell.value < limits_puriste[compound][0]:
                                     cell.value = f"< {limits_puriste[compound][0]}"
@@ -417,7 +417,7 @@ for num, file in enumerate(csv_files):
                                     cell.value = f"> {limits_puriste[compound][1]}"
                             except TypeError:
                                 continue
-                        elif "LBF" in filter_method:
+                        elif "LBF-" in filter_method:
                             try:
                                 if cell.value < limits_sulate[compound][0]:
                                     cell.value = f"< {limits_sulate[compound][0]}"
