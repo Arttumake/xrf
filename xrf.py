@@ -55,7 +55,7 @@ date_format = "%Y-%b-%d %X"  # how CSV-file represents a date
 for num, file in enumerate(csv_files):
     with open(file) as csv_file:
         file_reader = csv.reader(csv_file, delimiter=",")
-        dates_rows = {}
+        name_row = {}
         names = []
         # get each date in csv and put them in dictionary as datetime object keys
         # and row numbers being the values.
@@ -70,12 +70,12 @@ for num, file in enumerate(csv_files):
                     template = puriste_template
 
             date = datetime.datetime.strptime(row[3], date_format)
-            dates_rows[date] = row_num + 1
+            name_row[row_num + 1] = row[1]
             names.append(row[1])
 
         # check if batch name appears twice and if so, swap template to puriste_sulate
         duplicates = set([name for name in names if names.count(name) == 2])
-        if len(duplicates) == len(dates_rows) / 2:
+        if len(duplicates) == len(name_row) / 2:
             template = puriste_sulate_template
 
         # load the template and set active worksheet
@@ -129,19 +129,14 @@ for num, file in enumerate(csv_files):
         file_date_exact = (
             file_date + f" {current.hour} {current.minute} {current.second}"
         )
-
-        dates = []
-        # sort the dates
-        for key, value in dates_rows.items():
-            dates.append(key)
-        sorted_dates_rows = {}
-        dates.sort()
-
-        for i, key in enumerate(dates_rows.keys()):
-            sorted_dates_rows[key] = dates.index(key) + 1
-
-        # row_order shows where each row in csv is placed in excel report
-        row_order = [item for item in sorted_dates_rows.values()]
+        # acquire the order in which rows from csv should be placed in excel report
+        labid_rowNums = {}
+        for idx,item in enumerate(names):
+            labid_rowNums[idx+1] = item
+            
+        sorted_ids = sorted(labid_rowNums.items(), key=lambda x:x[1])
+        row_order = [item[0] for item in sorted_ids]
+        
         csv_file.seek(0)  # reset iterator to beginning
 
         # keep track of sample names and their row for puriste_sulate-template
