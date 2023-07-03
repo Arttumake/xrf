@@ -1,5 +1,6 @@
 *csv
 *xlsx
+*zip
 
 virtual_env/
 __pycache__/
