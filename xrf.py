@@ -20,7 +20,11 @@ Started: June 2022
 
 This script reads csv file in folder and outputs an Excel report based on
 the excel template file. It renames the input CSV-file, copies the Excel report to
-a subdirectory and moves the CSV-file to another. 
+a subdirectory and moves the CSV-file to another.
+
+DISCLAIMER: the script has not been designed from the ground up, it's been developed over time
+by adding small features (with many features changing multiple times), with priority being in delivering a 
+new version fast rather than coding it in the best and cleanest ways possible
 """
 
 
@@ -127,9 +131,17 @@ for num, file in enumerate(csv_files):
         # acquire the order in which rows from csv should be placed in excel report
         labid_rowNums = {}
         for idx, item in enumerate(names):
-            labid_rowNums[idx + 1] = item
-
+            try:
+                if len(item.split("-")[1]) == 1:
+                    # adding 0 to the part after hyphen, so that python's standard sort works properly for the values
+                    labid_rowNums[idx + 1] = item.split("-")[0] + "-0" + item.split("-")[1]
+                else:
+                    labid_rowNums[idx + 1] = item
+            except IndexError:
+                labid_rowNums[idx + 1] = item
+                
         sorted_ids = sorted(labid_rowNums.items(), key=lambda x: x[1])
+
         row_order = [item[0] for item in sorted_ids]
         csv_file.seek(0)  # reset iterator to beginning
 
