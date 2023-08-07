@@ -43,14 +43,10 @@ csv_files = glob.glob(os.path.join(parent_path, "*.csv"))
 
 # show error window if csv-file not in correct folder
 if not csv_files:
-    ctypes.windll.user32.MessageBoxW(
-        0, "Place CSV-file Export-folder for script to run", "Error", 0
-    )
+    ctypes.windll.user32.MessageBoxW(0, "Place CSV-file Export-folder for script to run", "Error", 0)
 
-excels = []
-csvs = []
+excels, csvs = [], []
 date_format = "%Y-%b-%d %X"  # how CSV-file represents a date
-
 
 for num, file in enumerate(csv_files):
     with open(file) as csv_file:
@@ -151,8 +147,10 @@ for num, file in enumerate(csv_files):
         uquant_methods = []
 
         # loop through samples (sorted by date) and csv iterable
+        # loop through samples (sorted by date) and csv iterable
         for index, (row_num, row) in enumerate(zip(row_order, file_reader)):
-            for col, value in enumerate(row):  # loop through each value in csv row
+            # loop through each value in csv row
+            for col, value in enumerate(row):
                 # +2 for the extra 2 rows under compounds
                 current_row = substance_row + row_num + 2
                 # place all unique methods in uniquant csv to list, place them in report later
@@ -166,66 +164,42 @@ for num, file in enumerate(csv_files):
                         this_column = compound_order[row[col - 1]]
                         if template != puriste_sulate_template:
                             # insert value from csv to correct row/column in excel report
-                            ws.cell(row=current_row, column=this_column).value = float(
-                                value
-                            )
+                            ws.cell(row=current_row, column=this_column).value = float(value)
 
                             # place values to Fe and Mn columns instead of Fe2O3 or MnO if sulphides method used in csv row
-                            if (
-                                template == uniquant_template
-                                and "sulphides" in row[0].lower()
-                            ):
+                            if (template == uniquant_template and "sulphides" in row[0].lower()):
                                 if row[col - 1] == "Fe2O3":
                                     fe = compound_order["Fe"]
-                                    ws.cell(row=current_row, column=fe).value = float(
-                                        value
-                                    )
-                                    ws.cell(
-                                        row=current_row, column=this_column
-                                    ).value = None
+                                    ws.cell(row=current_row, column=fe).value = float(value)
+                                    ws.cell(row=current_row, column=this_column).value = None
+
                                 elif row[col - 1] == "MnO":
                                     mn = compound_order["Mn"]
-                                    ws.cell(row=current_row, column=mn).value = float(
-                                        value
-                                    )
-                                    ws.cell(
-                                        row=current_row, column=this_column
-                                    ).value = None
+                                    ws.cell(row=current_row, column=mn).value = float(value)
+                                    ws.cell(row=current_row, column=this_column).value = None
 
-                            if (
-                                template == uniquant_template
-                                and "oxides" in row[0].lower()
-                            ):
+                            if (template == uniquant_template and "oxides" in row[0].lower()):
                                 if row[col - 1] == "Fe2O3":
                                     fe = compound_order["Fe"]
                                     ws.cell(row=current_row, column=fe).value = round(
-                                        0.69945 * float(value), 3
-                                    )
+                                        0.69945 * float(value), 3)
 
                         elif template == puriste_sulate_template:
-                            sample_name = row[1]  # refers to sample name in csv
-                            sub_method = ws.cell(
-                                row=13, column=this_column
-                            ).value.strip("\xa0")
+                            # refers to sample name in csv
+                            sample_name = row[1]
+                            sub_method = ws.cell(row=13, column=this_column).value.strip("\xa0")
                             if sample_name not in unique_samples.keys():
                                 unique_samples[sample_name] = current_row
                             # place value to report given the condition and if its the 2nd time the
                             # sample name appears, place its value in that sample name's row instead
-                            if (
-                                "LBF" in sub_method[:3]
-                                and "PhosphateConcentrateMajors" in row[0]
-                                or "PP" in sub_method[:2]
-                                and "PhosphateRocks" in row[0]
-                            ):
+                            if ("LBF" in sub_method[:3] and "PhosphateConcentrateMajors" in row[0]
+                                    or "PP" in sub_method[:2] and "PhosphateRocks" in row[0]):
+
                                 if sample_name not in unique_samples.keys():
-                                    ws.cell(
-                                        row=current_row, column=this_column
-                                    ).value = float(value)
+                                    ws.cell(row=current_row, column=this_column).value = float(value)
                                 else:
-                                    ws.cell(
-                                        row=unique_samples[sample_name],
-                                        column=this_column,
-                                    ).value = float(value)
+                                    ws.cell(row=unique_samples[sample_name],
+                                            column=this_column).value = float(value)
 
                     # catch all compounds not defined in the dictionary and place
                     # their values after "Sum Before Norm." cell
@@ -236,30 +210,19 @@ for num, file in enumerate(csv_files):
 
                         def place_value(this_column):
                             try:
-                                ws.cell(
-                                    row=current_row, column=this_column
-                                ).value = float(value)
-                                compound_cell.font = Font(
-                                    name="Arial", bold=True, size=10
-                                )
+                                ws.cell(row=current_row, column=this_column).value = float(value)
+                                compound_cell.font = Font(name="Arial", bold=True, size=10)
                                 compound_cell.alignment = Alignment(horizontal="center")
                                 compound_cell.border = Border(bottom=Side(style="thin"))
                                 # styling for the 2 rows below compound
-                                below_compound = ws.cell(
-                                    row=substance_row + 1, column=this_column
-                                )
+                                below_compound = ws.cell(row=substance_row + 1, column=this_column)
                                 below_compound.value = "(%)"
-                                below_compound.alignment = Alignment(
-                                    horizontal="center"
-                                )
+                                below_compound.alignment = Alignment(horizontal="center")
                                 below_compound.font = Font(name="Arial", size=8)
-                                pp_xrf12 = ws.cell(
-                                    row=substance_row + 2, column=this_column
-                                )
+
+                                pp_xrf12 = ws.cell(row=substance_row + 2, column=this_column)
                                 pp_xrf12.alignment = Alignment(horizontal="center")
-                                pp_xrf12.value = ws.cell(
-                                    row=substance_row + 2, column=2
-                                ).value
+                                pp_xrf12.value = ws.cell(row=substance_row + 2, column=2).value
                                 pp_xrf12.font = Font(name="Arial", size=8)
 
                             except ValueError:
@@ -276,14 +239,8 @@ for num, file in enumerate(csv_files):
                             is_avail = False
                             col_idx = 1
                             while not is_avail:
-                                compound_cell = ws.cell(
-                                    row=substance_row, column=this_column + col_idx
-                                )
-                                debug = compound_cell.value
-                                if (
-                                    compound == compound_cell.value
-                                    or not compound_cell.value
-                                ):
+                                compound_cell = ws.cell(row=substance_row, column=this_column + col_idx)
+                                if (compound == compound_cell.value or not compound_cell.value):
                                     compound_cell.value = compound
                                     place_value(this_column + col_idx)
                                     is_avail = True
@@ -292,16 +249,12 @@ for num, file in enumerate(csv_files):
                 # sample name column from csv to excel report
                 elif col == 1:
                     ws.cell(row=current_row, column=1).value = value
-                    ws.cell(row=current_row, column=1).alignment = Alignment(
-                        horizontal="right"
-                    )
+                    ws.cell(row=current_row, column=1).alignment = Alignment(horizontal="right")
 
                 # get SID2 from first row, column 3
                 elif col == 2 and index == 0:
                     sid2 = value  # to be used in naming the report
-                    ws.cell(
-                        row=4, column=2
-                    ).value = value  # add sid2 to excel report as batch name
+                    ws.cell(row=4, column=2).value = value  # add sid2 to excel report as batch name
 
     # place all methods in uniquant csv to the correct field in excel report
     if template == uniquant_template:
@@ -311,10 +264,10 @@ for num, file in enumerate(csv_files):
     if template == sulate_template:
         for key, value in limits_sulate.items():
             for col in ws.iter_cols(
-                min_row=substance_row + 3,
-                min_col=compound_order[key],
-                max_col=compound_order[key],
-            ):
+                    min_row=substance_row + 3,
+                    min_col=compound_order[key],
+                    max_col=compound_order[key]):
+
                 for cell in col:
                     if cell.value or cell.value == 0:
                         try:
@@ -329,10 +282,9 @@ for num, file in enumerate(csv_files):
     elif template == puriste_template:
         for key, value in limits_puriste.items():
             for col in ws.iter_cols(
-                min_row=substance_row + 3,
-                min_col=compound_order[key],
-                max_col=compound_order[key],
-            ):
+                    min_row=substance_row + 3,
+                    min_col=compound_order[key],
+                    max_col=compound_order[key]):
                 for cell in col:
                     if cell.value or cell.value == 0:
                         try:
@@ -346,20 +298,15 @@ for num, file in enumerate(csv_files):
     # check for None-values in excel report and insert value to them
     if template != puriste_sulate_template:
         if template == uniquant_template:
-            exclude = [
-                "Mn",
-                "MnO",
-                "Fe",
-                "Fe2O3",
-            ]  # don't put a value in cells under these compounds
-            exclude_cols = [
-                compound_order[comp] for comp in exclude
-            ]  # exclude list converted to column number list
+            # don't put a value in cells under these compounds
+            exclude = ["Mn", "MnO", "Fe", "Fe2O3"]
+
+            # exclude list converted to column number list
+            exclude_cols = [compound_order[comp] for comp in exclude]
             for row in ws.iter_rows(
-                min_row=substance_row + 3,
-                min_col=offset + 1,
-                max_col=len(compound_order) + offset,
-            ):
+                    min_row=substance_row + 3,
+                    min_col=offset + 1,
+                    max_col=len(compound_order) + offset):
                 if row[0].value:  # check that row has a sample name
                     for cell in row:
                         if not cell.value and cell.column not in exclude_cols:
@@ -367,10 +314,9 @@ for num, file in enumerate(csv_files):
                         cell.alignment = Alignment(horizontal="right")
         else:
             for row in ws.iter_rows(
-                min_row=substance_row + 3,
-                min_col=offset + 1,
-                max_col=len(compound_order) + offset,
-            ):
+                    min_row=substance_row + 3,
+                    min_col=offset + 1,
+                    max_col=len(compound_order) + offset):
                 if row[0].value:  # check that row has a sample name
                     for cell in row:
                         if not cell.value:
@@ -380,11 +326,10 @@ for num, file in enumerate(csv_files):
     # delete duplicate rows with no values from excel report if puriste_sulate template
     else:
         for col in ws.iter_cols(
-            min_row=substance_row + 3,
-            max_row=substance_row + 3 + len(row_order),
-            min_col=offset + 1,
-            max_col=offset + 1,
-        ):
+                min_row=substance_row + 3,
+                max_row=substance_row + 3 + len(row_order),
+                min_col=offset + 1,
+                max_col=offset + 1):
             for cell in col:
                 if not cell.value:
                     ws.delete_rows(cell.row)
@@ -392,12 +337,8 @@ for num, file in enumerate(csv_files):
     # check limits for puriste_sulate template
     if template == puriste_sulate_template:
         starting_col = 2
-        for col in ws.iter_cols(
-            min_row=substance_row + 3, min_col=2, max_col=len(compound_order) + 2
-        ):
-            unstripped_method = ws.cell(
-                row=substance_row + 2, column=starting_col
-            ).value
+        for col in ws.iter_cols(min_row=substance_row + 3, min_col=2, max_col=len(compound_order) + 2):
+            unstripped_method = ws.cell(row=substance_row + 2, column=starting_col).value
 
             if unstripped_method:
                 filter_method = unstripped_method.strip("\xa0")
@@ -431,9 +372,7 @@ for num, file in enumerate(csv_files):
             starting_col += 1
 
     forbidden = "/\?:|<>"  # characters that can't be used in file name
-    sid2_clean = "".join(
-        " " if letter in forbidden else letter for letter in sid2
-    ).rstrip()
+    sid2_clean = "".join(" " if letter in forbidden else letter for letter in sid2).rstrip()
 
     # rename csv file and save a new excel file
 
